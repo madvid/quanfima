@@ -8,6 +8,9 @@ from scipy import ndimage as ndi
 from sklearn import metrics
 from skimage import filters, morphology, data as skidata, exposure, draw
 
+# Pour le multiprocessing
+import concurrent.futures
+from multiprocessing import cpu_count
 
 def random_in(rng, number=1):
 	"""Returns a random value within a given range.
@@ -15,6 +18,25 @@ def random_in(rng, number=1):
 	start, end = rng
 	values = np.random.random_sample(number) * (end - start) + start
 	return values[0] if number == 1 else values
+
+
+def wrapper_test(i, pts, pt_filter):
+	"""
+	test de parallélisation
+	"""
+	print("ici 1")
+	try:
+		print("ici 2")
+		slice_pts_mask = [pt_filter(pt) for pt in pts]
+		print("ici 3")
+		slice_pts = pts[slice_pts_mask].astype(np.int32)
+		if len(slice_pts) > 0:
+			n_slices += 1
+			fiber_pts = slice_pts
+		return [i, fiber_pts]
+	except:
+		print("ici 4")
+		return None
 
 
 def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
@@ -98,6 +120,26 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 						   np.all(np.less(np.array(pt), dims_size))
 	n_slices = 0
 	fiber_pts = None
+	#idx = list(range(0,len(slice_pts)))
+	
+	# Add multiprocessing process:
+	#n_cpu = cpu_count()
+	#cpu_use = int(n_cpu/2)
+	#results=[]
+	#print("start")
+	#with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
+	#	for i, pts in zip(idx, slice_pts):
+	#		print(f"val de i = {i} -- shape(pts) = {pts.shape}")
+	#		results.append(executor.submit(wrapper_test, i, pts, pt_filter))
+	#	
+	#	#for task in concurrent.futures.as_completed(results):
+	#	#	if task.result() != None:
+	#	#		print(f"... done ... slice id = {task.result()[0]}", end='\r', flush=True)
+
+	#print("end")
+	#fiber_pts = sorted(results, key = lambda x: x[0])
+	#fiber_pts = np.concatenate((elem[1] for elem in fiber_pts))
+	###
 	for pts in slices_pts:
 		slice_pts_mask = [pt_filter(pt) for pt in pts]
 		slice_pts = pts[slice_pts_mask].astype(np.int32)
@@ -105,6 +147,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 			n_slices += 1
 			fiber_pts = slice_pts if fiber_pts is None else \
 												np.concatenate((fiber_pts, slice_pts))
+	
 	# number of slices, e.g. steps.
 	fiber_len = np.round(n_slices * dl).astype(np.int32)
 	fiber_pts = fiber_pts.astype(np.int32)
@@ -169,6 +212,10 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	lat_ref = np.zeros_like(volume, dtype=np.float32)
 	azth_ref = np.zeros_like(volume, dtype=np.float32)
 	diameter = np.zeros_like(volume, dtype=np.float32)
+	print(f"volume = {volume.shape}")
+	print(f"lat_ref = {lat_ref.shape}")
+	print(f"azth_ref = {azth_ref.shape}")
+	print(f"diameter = {diameter.shape}")
 
 	dims = np.array(volume.shape)[::-1]
 	# supposing the volume is a cube, if not there might be some issues
@@ -177,6 +224,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	n_generated = 0
 	n_fails = 0
 	while n_generated < n_fibers and n_fails < max_fails:
+		print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
 		length = min(volume_shape)
 		length = np.floor(length * random_in(length_lim, number=1)).astype(np.int32)
 
@@ -223,7 +271,10 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 	te = time.time()
 	elapsed_time = te - ts
-
+	print(f"volume = {volume.shape}")
+	print(f"lat_ref = {lat_ref.shape}")
+	print(f"azth_ref = {azth_ref.shape}")
+	print(f"diameter = {diameter.shape}")
 	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
