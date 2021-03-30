@@ -15,6 +15,8 @@ volume = ndi.median_filter(volume, footprint=morphology.ball(2))
 lat_ref = ndi.median_filter(lat_ref, footprint=morphology.ball(2))
 azth_ref = ndi.median_filter(azth_ref, footprint=morphology.ball(2))
 
+
+
 # prepare data and analyze fibers
 pdata, pskel, pskel_thick = utils.prepare_data(volume)
 #oprops =  mrph.estimate_tensor_parallel('dataset_orientation_w36',
