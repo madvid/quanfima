@@ -8,7 +8,8 @@ from skimage import feature, measure, filters
 from skimage.util.shape import view_as_blocks
 from scipy import ndimage as ndi
 from scipy.spatial import distance
-import vigra
+# import vigra
+import structure_tensor
 import pandas as pd
 from multiprocessing import Pool
 from quanfima import cuda_available
@@ -409,6 +410,8 @@ def extract_patch(data, pt, ws2):
     if any(np.array(lim0) < 0) or any(np.array(lim1) > (data.shape[0] - 1)):
         return None
 
+    lim0 = [int(elem) for elem in lim0]
+    lim1 = [int(elem) for elem in lim1]
     z0, y0, x0 = lim0
     z1, y1, x1 = lim1
     patch = data[z0:z1, y0:y1, x0:x1]
@@ -432,13 +435,22 @@ def orientation_3d_tensor_vigra(data, sigma=0.1):
         The latitude / elevation and azimuth component of 3D orientation of structures within
         the patch `data`.
     """
-    img = vigra.filters.structureTensor(data, 1, 1, sigma_d=sigma)
-    Axx = img[:, :, :, 0]
-    Axy = img[:, :, :, 1]
-    Axz = img[:, :, :, 2]
-    Ayy = img[:, :, :, 3]
-    Ayz = img[:, :, :, 4]
-    Azz = img[:, :, :, 5]
+    rho = 3 * sigma
+    img = structure_tensor.structure_tensor_3d(data, sigma, rho)
+    Axx = img[0]
+    Axy = img[1]
+    Axz = img[2]
+    Ayy = img[3]
+    Ayz = img[4]
+    Azz = img[5]
+    # ---- previous versio with vigra package -----
+    #img = vigra.filters.structureTensor(data, 1, 1, sigma_d=sigma)
+    #Axx = img[:, :, :, 0]
+    #Axy = img[:, :, :, 1]
+    #Axz = img[:, :, :, 2]
+    #Ayy = img[:, :, :, 3]
+    #Ayz = img[:, :, :, 4]
+    #Azz = img[:, :, :, 5]
 
     tensor_vals = np.array([[np.mean(Azz), np.mean(Ayz), np.mean(Axz)],
                             [np.mean(Ayz), np.mean(Ayy), np.mean(Axy)],

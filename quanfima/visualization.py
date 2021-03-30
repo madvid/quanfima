@@ -16,7 +16,7 @@ from matplotlib.transforms import Affine2D
 from mpl_toolkits.axisartist.grid_finder import DictFormatter, FixedLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axisartist.floating_axes import GridHelperCurveLinear
-from utils import geo2rgb
+from quanfima.utils import geo2rgb
 from quanfima import visvis_available
 if visvis_available:
     import visvis as vv
