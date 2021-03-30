@@ -443,7 +443,7 @@ def orientation_3d_tensor_vigra(data, sigma=0.1):
     Ayy = img[3]
     Ayz = img[4]
     Azz = img[5]
-    # ---- previous versio with vigra package -----
+    # ---- previous version with vigra package -----
     #img = vigra.filters.structureTensor(data, 1, 1, sigma_d=sigma)
     #Axx = img[:, :, :, 0]
     #Axy = img[:, :, :, 1]
