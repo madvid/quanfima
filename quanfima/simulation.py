@@ -77,7 +77,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 	steps = range(half_steps - int(n_steps), half_steps)
 
 	# Draw circle perpedicular to the directional vector
-	X, Y = draw.disk(0, 0, radius)
+	X, Y = draw.disk((0, 0), radius)
 	Z = np.repeat(0, len(Y))
 	circle_pts = np.array([X, Y, Z])
 	circle_pts = np.dot(mx, circle_pts)
