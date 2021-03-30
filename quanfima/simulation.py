@@ -10,7 +10,8 @@ from skimage import filters, morphology, data as skidata, exposure, draw
 
 
 def random_in(rng, number=1):
-	"""Returns a random value within a given range.
+	"""
+    Returns a random value within a given range.
 	"""
 	start, end = rng
 	values = np.random.random_sample(number) * (end - start) + start
@@ -111,8 +112,13 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 	return fiber_pts, fiber_len
 
 
-def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.2, 0.8),
-					lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
+def simulate_fibers(volume_shape, 
+                    n_fibers=1, 
+                    radius_lim=(4, 10), 
+                    length_lim=(0.2, 0.8),
+					lat_lim=(0, np.pi), 
+                    azth_lim=(0, np.pi), 
+                    gap_lim=(3, 10),
 					max_fails=10, max_len_loss=0.5, intersect=False):
 	"""Simulates fibers in a volume.
 
