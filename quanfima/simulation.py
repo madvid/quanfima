@@ -13,7 +13,8 @@ import concurrent.futures
 from multiprocessing import cpu_count
 
 def random_in(rng, number=1):
-	"""Returns a random value within a given range.
+	"""
+    Returns a random value within a given range.
 	"""
 	start, end = rng
 	values = np.random.random_sample(number) * (end - start) + start
@@ -92,7 +93,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 	steps = range(half_steps - int(n_steps), half_steps)
 
 	# Draw circle perpedicular to the directional vector
-	X, Y = draw.circle(0, 0, radius)
+	X, Y = draw.disk((0, 0), radius)
 	Z = np.repeat(0, len(Y))
 	circle_pts = np.array([X, Y, Z])
 	circle_pts = np.dot(mx, circle_pts)
