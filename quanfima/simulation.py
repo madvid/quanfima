@@ -20,28 +20,24 @@ def random_in(rng, number=1):
 	return values[0] if number == 1 else values
 
 
-def wrapper_test(i, pts, pt_filter):
-	"""
+def cpu_parallelization_slice_treat(i, pts, dims_size):
+	""" CPU parallelized version of 
 	test de parallélisation
 	"""
-	print("ici 1")
+	mask = list(map(lambda pt: np.all(pt >= (0, 0, 0)) and np.all(pt < dims_size), pts))
+	slice_pts_masked = pts[mask].astype(np.int32)
+	ret = None
 	try:
-		print("ici 2")
-		slice_pts_mask = [pt_filter(pt) for pt in pts]
-		print("ici 3")
-		slice_pts = pts[slice_pts_mask].astype(np.int32)
-		if len(slice_pts) > 0:
-			n_slices += 1
-			fiber_pts = slice_pts
-		return [i, fiber_pts]
+		if len(slice_pts_masked) > 0:
+			ret = [i, slice_pts_masked]
 	except:
-		print("ici 4")
-		return None
+		ret = None
+	return ret
 
 
-def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
+
+def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 	"""Computes fiber coordinates and its length.
-
 	Computes a fiber of speficied `length`, `radius`, oriented under azimuth `azth` and
 	latitude / elevation `lat` angles shifted to `offset_xyz` from the center of a volume of
 	size `dims_size`.
@@ -50,22 +46,19 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 	----------
 	dims_size : tuple
 		Indicates the size of the volume.
-
 	length : integer
 		Indicates the length of the simulated fiber.
-
 	radius : integer
 		Indicates the radius of the simulated fiber.
-
 	azth : float
 		Indicates the azimuth component of the orientation angles of the fiber in radians.
-
 	lat : float
 		Indicates the latitude / elevation component of the orientation angles of the fiber
 		in radians.
-
 	offset_xyz : tuple
 		Indicates the offset from the center of the volume where the fiber will be generated.
+	parallelization: str
+		Indicates if CPU/GPU parallelization or sequential processing should be performed or not
 
 	Returns
 	-------
@@ -106,7 +99,6 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 	circle_pts = np.dot(mz, circle_pts)
 
 	# Propogate the circle profile along the directional vector
-	#slice_pts = np.array(zip(*circle_pts))
 	slice_pts = circle_pts.T
 	dxyz = np.array([dx, dy, dz])
 	step_shifts = np.array([step * dxyz for step in steps])  # [(dx,dy,dz), ...] for each step
@@ -115,39 +107,44 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 	slices_pts = np.round(np.array([slice_pts + step_shift + center_shift
 										for step_shift in step_shifts]))
 
-	# Filter all the points which are outside the boundary
-	pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
-						   np.all(np.less(np.array(pt), dims_size))
 	n_slices = 0
-	fiber_pts = None
-	#idx = list(range(0,len(slice_pts)))
-	
-	# Add multiprocessing process:
-	#n_cpu = cpu_count()
-	#cpu_use = int(n_cpu/2)
-	#results=[]
-	#print("start")
-	#with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
-	#	for i, pts in zip(idx, slice_pts):
-	#		print(f"val de i = {i} -- shape(pts) = {pts.shape}")
-	#		results.append(executor.submit(wrapper_test, i, pts, pt_filter))
-	#	
-	#	#for task in concurrent.futures.as_completed(results):
-	#	#	if task.result() != None:
-	#	#		print(f"... done ... slice id = {task.result()[0]}", end='\r', flush=True)
+	if parallelization == "CPU":
+		# New way, CPU parallelized:
+		idx = 1
+		tot = slices_pts.shape
+		n_cpu = cpu_count()
+		cpu_use = int(n_cpu / 2)
+		results=[]
+		fiber_pts = []
+		with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
+			for pts in slices_pts:
+				#print(f"... running ... slice #nb: {i}{tot}.", end='\r')
+				results.append(executor.submit(cpu_parallelization_slice_treat, idx, pts, dims_size))
+				idx += 1
 
-	#print("end")
-	#fiber_pts = sorted(results, key = lambda x: x[0])
-	#fiber_pts = np.concatenate((elem[1] for elem in fiber_pts))
-	###
-	for pts in slices_pts:
-		slice_pts_mask = [pt_filter(pt) for pt in pts]
-		slice_pts = pts[slice_pts_mask].astype(np.int32)
-		if len(slice_pts) > 0:
-			n_slices += 1
-			fiber_pts = slice_pts if fiber_pts is None else \
-												np.concatenate((fiber_pts, slice_pts))
-	
+			for task in concurrent.futures.as_completed(results):
+				if task.result() != None:
+					n_slices += 1
+					fiber_pts.append(task.result())
+					#print(f"... done ... slice #nb: {task.result()[0]}{tot}", end='\r')
+		fiber_pts = sorted(fiber_pts, key=lambda idx_slice: fiber_pts[0])
+		fiber_pts = np.concatenate([elem[1] for elem in fiber_pts])
+	elif parallelization == "GPU":
+		pass
+	else:
+		### Original way:
+		# Filter all the points which are outside the boundary
+		pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
+						   np.all(np.less(np.array(pt), dims_size))
+		fiber_pts = None
+		for pts in slices_pts:
+			slice_pts_mask = [pt_filter(pt) for pt in pts]
+			slice_pts = pts[slice_pts_mask].astype(np.int32)
+			if len(slice_pts) > 0:
+				n_slices += 1
+				fiber_pts = slice_pts if fiber_pts is None else \
+													np.concatenate((fiber_pts, slice_pts))
+
 	# number of slices, e.g. steps.
 	fiber_len = np.round(n_slices * dl).astype(np.int32)
 	fiber_pts = fiber_pts.astype(np.int32)
@@ -156,7 +153,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz):
 
 def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.2, 0.8),
 					lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
-					max_fails=10, max_len_loss=0.5, intersect=False):
+					max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, verbose=False):
 	"""Simulates fibers in a volume.
 
 	Simulates `n_fibers` of the radii and lengths in ranges `radius_lim` and `length_lim`,
@@ -212,10 +209,12 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	lat_ref = np.zeros_like(volume, dtype=np.float32)
 	azth_ref = np.zeros_like(volume, dtype=np.float32)
 	diameter = np.zeros_like(volume, dtype=np.float32)
-	print(f"volume = {volume.shape}")
-	print(f"lat_ref = {lat_ref.shape}")
-	print(f"azth_ref = {azth_ref.shape}")
-	print(f"diameter = {diameter.shape}")
+	if verbose:
+		print("=================================================== ")
+		print("==== Start of the fibers simulation generation ==== ")
+		print("=================================================== ")
+		volume_str = "Volume of the simulated cell (in (pxl,pxl,pxl))="
+		print(volume_str, volume.shape)
 
 	dims = np.array(volume.shape)[::-1]
 	# supposing the volume is a cube, if not there might be some issues
@@ -238,8 +237,8 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 		gap = random_in(gap_lim, number=1)
 		gap = np.round(gap).astype(np.int32)
 
-		fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset)
-		gap_fiber_pts, gap_fiber_len = mkfiber(dims, length, radius + gap, azth, lat, offset)
+		fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset, parallelization)
+		gap_fiber_pts, gap_fiber_len = mkfiber(dims, length, radius + gap, azth, lat, offset, parallelization)
 
 		# Length loss
 		if (1. - float(gap_fiber_len) / length) > max_len_loss:
@@ -271,10 +270,10 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 	te = time.time()
 	elapsed_time = te - ts
-	print(f"volume = {volume.shape}")
-	print(f"lat_ref = {lat_ref.shape}")
-	print(f"azth_ref = {azth_ref.shape}")
-	print(f"diameter = {diameter.shape}")
+	#print(f"volume = {volume.shape}")
+	#print(f"lat_ref = {lat_ref.shape}")
+	#print(f"azth_ref = {azth_ref.shape}")
+	#print(f"diameter = {diameter.shape}")
 	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
