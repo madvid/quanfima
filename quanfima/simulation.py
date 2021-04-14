@@ -13,16 +13,6 @@ import cupy as cp
 import concurrent.futures
 from multiprocessing import cpu_count
 
-def random_in(rng, number=1):
-    """
-    Returns a random value within a given range.
-    """
-    start, end = rng
-    
-    values = np.random.random_sample(number) * (end - start) + start
-    
-    return values[0] if number == 1 else values
-
 
 def cpu_parallelization_slice_treat(i, pts, dims_size):
 	""" CPU parallelized version of 
@@ -170,8 +160,6 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 	# number of slices, e.g. steps.
 	fiber_len = np.round(n_slices * dl).astype(np.int32)
 	fiber_pts = fiber_pts.astype(np.int32)
-	#print("type de fiber_len:\n", type(fiber_len))
-	#print("type de fiber_pts:\n", type(fiber_pts))
 	return fiber_pts, fiber_len
 
 
@@ -249,16 +237,16 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	while n_generated < n_fibers and n_fails < max_fails:
 		print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
 		length = min(volume_shape)
-		length = np.floor(length * random_in(length_lim, number=1)).astype(np.int32)
+		length = np.floor(length * np.random.default_rng().uniform(length_lim[0], length_lim[1])).astype(np.int32)
 
-		offset = [random_in(offset_lim, number=1) for _ in [0, 1, 2]]
+		offset = [np.random.default_rng().uniform(offset_lim[0], offset_lim[1]) for _ in [0, 1, 2]]
 		offset = np.round(offset).astype(np.int32)
 
-		azth = random_in(azth_lim, number=1)
-		lat = random_in(lat_lim, number=1)
-		radius = random_in(radius_lim, number=1)
+		azth = np.random.default_rng().uniform(azth_lim[0], azth_lim[1])
+		lat = np.random.default_rng().uniform(lat_lim[0], lat_lim[1])
+		radius = np.random.default_rng().uniform(radius_lim[0], radius_lim[1])
 
-		gap = random_in(gap_lim, number=1)
+		gap = np.random.default_rng().uniform(gap_lim[0], gap_lim[1])
 		gap = np.round(gap).astype(np.int32)
 
 		fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset, parallelization)
@@ -437,10 +425,10 @@ def simulate_particles(volume_shape, n_particles=1, radius_lim=(3, 30), max_fail
             print('n_generated = {}/{}, n_fails = {}/{}'.format(n_generated, n_particles,
                                                                 n_fails, max_fails))
 
-        offset = [random_in(olim, number=1) for olim in offset_lim]
+        offset = [np.random.default_rng().uniform(olim[0], olim[1]) for olim in offset_lim]
         offset = np.round(offset).astype(np.int32)
 
-        radius = np.round(random_in(radius_lim, number=1))
+        radius = np.round(np.random.default_rng().uniform(radius_lim[0], radius_lim[1]))
 
         gen_ball = morphology.ball(radius, dtype=np.int32)
         Z, Y, X = gen_ball.nonzero()
