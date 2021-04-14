@@ -279,15 +279,10 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 					continue
 
 			# Fill the volume
-			# dims_size * 0.5 + offset
-			volume[Z, Y, X] = fiber_id
-			#print("\nradius:", radius)
-			#sample_points = int(3.14 * (radius**2) / 4)
-			#center = (int(X[0:sample_points].mean()), int(Y[0:sample_points].mean()), int(Z[0:sample_points].mean()))
-			#center = (int(dims[0] * 0.5 + offset[0]), int(dims[1] * 0.5 + offset[1]), int(dims[2] * 0.5 + offset[2]))
-			#center = tuple(center.astype(int))
-			#mask = flood(volume, center)
-			#volume[mask] = fiber_id
+			clean_cell = np.zeros(volume_shape, dtype=np.int8)
+			clean_cell[Z, Y, X] = 1
+			clean_cell = ndi.binary_fill_holes(clean_cell)
+			volume[clean_cell] = fiber_id
 			fiber_id += 1
 			lat_ref[Z, Y, X] = lat
 			azth_ref[Z, Y, X] = azth
@@ -301,7 +296,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	#print(f"lat_ref = {lat_ref.shape}")
 	#print(f"azth_ref = {azth_ref.shape}")
 	#print(f"diameter = {diameter.shape}")
-	volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
+	#volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
 	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
