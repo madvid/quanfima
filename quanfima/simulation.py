@@ -7,286 +7,287 @@ from multiprocessing import Pool
 from scipy import ndimage as ndi
 from sklearn import metrics
 from skimage import filters, morphology, data as skidata, exposure, draw
-    
+import cupy as cp
 
 # Pour le multiprocessing
 import concurrent.futures
 from multiprocessing import cpu_count
 
-def random_in(rng, number=1):
-    """
-    Returns a random value within a given range.
-    """
-    start, end = rng
-    
-    values = np.random.random_sample(number) * (end - start) + start
-    
-    return values[0] if number == 1 else values
-
 
 def cpu_parallelization_slice_treat(i, pts, dims_size):
-    """ CPU parallelized version of 
-    test de parallélisation
-    """
-    mask = list(map(lambda pt: np.all(pt >= (0, 0, 0)) and np.all(pt < dims_size), pts))
-    slice_pts_masked = pts[mask].astype(np.int32)
-    ret = None
-    try:
-        if len(slice_pts_masked) > 0:
-            ret = [i, slice_pts_masked]
-    except:
-        ret = None
-    return ret
+	""" CPU parallelized version of 
+	test de parallélisation
+	"""
+	mask = list(map(lambda pt: np.all(pt >= (0, 0, 0)) and np.all(pt < dims_size), pts))
+	slice_pts_masked = pts[mask].astype(np.int32)
+	ret = None
+	try:
+		if len(slice_pts_masked) > 0:
+			ret = [i, slice_pts_masked]
+	except:
+		ret = None
+	return ret
 
 
 
-def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization, verbose = False):
-    """Computes fiber coordinates and its length.
-    Computes a fiber of speficied `length`, `radius`, oriented under azimuth `azth` and
-    latitude / elevation `lat` angles shifted to `offset_xyz` from the center of a volume of
-    size `dims_size`.
+def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
+	"""Computes fiber coordinates and its length.
+	Computes a fiber of speficied `length`, `radius`, oriented under azimuth `azth` and
+	latitude / elevation `lat` angles shifted to `offset_xyz` from the center of a volume of
+	size `dims_size`.
 
-    Parameters
-    ----------
-    dims_size : tuple
-        Indicates the size of the volume.
-    length : integer
-        Indicates the length of the simulated fiber.
-    radius : integer
-        Indicates the radius of the simulated fiber.
-    azth : float
-        Indicates the azimuth component of the orientation angles of the fiber in radians.
-    lat : float
-        Indicates the latitude / elevation component of the orientation angles of the fiber
-        in radians.
-    offset_xyz : tuple
-        Indicates the offset from the center of the volume where the fiber will be generated.
-    parallelization: str
-        Indicates if CPU/GPU parallelization or sequential processing should be performed or not
+	Parameters
+	----------
+	dims_size : tuple
+		Indicates the size of the volume.
+	length : integer
+		Indicates the length of the simulated fiber.
+	radius : integer
+		Indicates the radius of the simulated fiber.
+	azth : float
+		Indicates the azimuth component of the orientation angles of the fiber in radians.
+	lat : float
+		Indicates the latitude / elevation component of the orientation angles of the fiber
+		in radians.
+	offset_xyz : tuple
+		Indicates the offset from the center of the volume where the fiber will be generated.
+	parallelization: str
+		Indicates if CPU/GPU parallelization or sequential processing should be performed or not
 
-    Returns
-    -------
-    fiber_pts, fiber_len : tuple of array and number
-        The array of fiber coordinates and the length.
-    """
-    #print("arguments=",dims_size, length, radius, azth, lat, offset_xyz)
+	Returns
+	-------
+	fiber_pts, fiber_len : tuple of array and number
+		The array of fiber coordinates and the length.
+	"""
+	#print("arguments=",dims_size, length, radius, azth, lat, offset_xyz)
 
-    dims_size = np.array(dims_size)
+	dims_size = np.array(dims_size)
 
-    half_pi = np.pi / 2.
-    mx = np.array([[1., 0., 0],
-                   [0., np.cos(lat), np.sin(lat)],
-                   [0., -np.sin(lat), np.cos(lat)]])
+	half_pi = np.pi / 2.
+	mx = np.array([[1., 0., 0],
+				   [0., np.cos(lat), np.sin(lat)],
+				   [0., -np.sin(lat), np.cos(lat)]])
 
-    azth += half_pi
-    mz = np.array([[np.cos(azth), -np.sin(azth), 0],
-                   [np.sin(azth), np.cos(azth), 0],
-                   [0., 0., 1.]])
+	azth += half_pi
+	mz = np.array([[np.cos(azth), -np.sin(azth), 0],
+				   [np.sin(azth), np.cos(azth), 0],
+				   [0., 0., 1.]])
 
-    # Directional vector
-    dl = 1
-    dir_vec = np.array([0, 0, 1])
-    dir_vec = np.dot(mx, dir_vec)
-    dir_vec = np.dot(mz, dir_vec)
-    dx, dy, dz = dir_vec[0], dir_vec[1], dir_vec[2]
+	# Directional vector
+	dl = 1
+	dir_vec = np.array([0, 0, 1])
+	dir_vec = np.dot(mx, dir_vec)
+	dir_vec = np.dot(mz, dir_vec)
+	dx, dy, dz = dir_vec[0], dir_vec[1], dir_vec[2]
 
-    # Compute length
-    n_steps = np.round(length / dl)
-    half_steps = int(np.ceil(n_steps / 2.))
-    steps = range(half_steps - int(n_steps), half_steps)
+	# Compute length
+	n_steps = np.round(length / dl)
+	half_steps = int(np.ceil(n_steps / 2.))
+	steps = range(half_steps - int(n_steps), half_steps)
 
-    # Draw circle perpedicular to the directional vector
-    X, Y = draw.disk((0, 0), radius)
-    Z = np.repeat(0, len(Y))
-    circle_pts = np.array([X, Y, Z])
-    circle_pts = np.dot(mx, circle_pts)
-    circle_pts = np.dot(mz, circle_pts)
+	# Draw circle perpedicular to the directional vector
+	X, Y = draw.disk((0, 0), radius) # X and Y values of each voxels which constitued the circle
+	Z = np.repeat(0, len(Y)) # associated Z coordinates of the voxels
+	circle_pts = np.array([X, Y, Z])
+	circle_pts = np.dot(mx, circle_pts)
+	circle_pts = np.dot(mz, circle_pts)
 
-    # Propogate the circle profile along the directional vector
-    slice_pts = circle_pts.T
-    dxyz = np.array([dx, dy, dz])
-    step_shifts = np.array([step * dxyz for step in steps])  # [(dx,dy,dz), ...] for each step
-    center_shift = dims_size * 0.5 + offset_xyz  # (x, y ,z)
+	# Propogate the circle profile along the directional vector
+	slice_pts = circle_pts.T
+	#print("slice_pts : ", slice_pts, "\n")
+	dxyz = np.array([dx, dy, dz])
+	#print("slice_pts : ", slice_pts, "\n")
+	step_shifts = np.array([step * dxyz for step in steps])  # [(dx,dy,dz), ...] for each step
+	center_shift = dims_size * 0.5 + offset_xyz  # (x, y ,z)
 
-    slices_pts = np.round(np.array([slice_pts + step_shift + center_shift
-                                        for step_shift in step_shifts]))
+	slices_pts = np.round(np.array([slice_pts + step_shift + center_shift
+										for step_shift in step_shifts]))
 
-    n_slices = 0
-    if parallelization == "CPU":
-        # New way, CPU parallelized:
-        idx = 1
-        tot = slices_pts.shape
-        n_cpu = cpu_count()
-        cpu_use = int(n_cpu / 2)
-        if verbose: 
-            print('cpu: ', cpu_use)
-        results=[]
-        fiber_pts = []
-        with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
-            for pts in slices_pts:
-                #print(f"... running ... slice #nb: {i}{tot}.", end='\r')
-                results.append(executor.submit(cpu_parallelization_slice_treat, idx, pts, dims_size))
-                idx += 1
+	n_slices = 0
+	if parallelization == "CPU":
+		# New way, CPU parallelized:
+		idx = 1
+		tot = slices_pts.shape
+		n_cpu = cpu_count()
+		cpu_use = int(n_cpu / 2)
+		results=[]
+		fiber_pts = []
+		with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
+			for pts in slices_pts:
+				#print(f"... running ... slice #nb: {i}{tot}.", end='\r')
+				results.append(executor.submit(cpu_parallelization_slice_treat, idx, pts, dims_size))
+				idx += 1
 
-            for task in concurrent.futures.as_completed(results):
-                if task.result() != None:
-                    n_slices += 1
-                    fiber_pts.append(task.result())
-                    #print(f"... done ... slice #nb: {task.result()[0]}{tot}", end='\r')
-        fiber_pts = sorted(fiber_pts, key=lambda idx_slice: fiber_pts[0])
-        fiber_pts = np.concatenate([elem[1] for elem in fiber_pts])
-    elif parallelization == "GPU":
-        pass
-    else:
-        ### Original way:
-        # Filter all the points which are outside the boundary
-        pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
-                           np.all(np.less(np.array(pt), dims_size))
-        fiber_pts = None
-        for pts in slices_pts:
-            slice_pts_mask = [pt_filter(pt) for pt in pts]
-            slice_pts = pts[slice_pts_mask].astype(np.int32)
-            if len(slice_pts) > 0:
-                n_slices += 1
-                fiber_pts = slice_pts if fiber_pts is None else \
-                                                    np.concatenate((fiber_pts, slice_pts))
+			for task in concurrent.futures.as_completed(results):
+				if task.result() != None:
+					n_slices += 1
+					fiber_pts.append(task.result())
+					#print(f"... done ... slice #nb: {task.result()[0]}{tot}", end='\r')
+		fiber_pts = sorted(fiber_pts, key=lambda idx_slice: fiber_pts[0])
+		fiber_pts = np.concatenate([elem[1] for elem in fiber_pts])
+	elif parallelization == "GPU":
+		#pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
+		#				   np.all(np.less(np.array(pt), dims_size))
+		fiber_pts = None
+		gpu_slices_pts = cp.asarray(slices_pts)
+		print("shape de gput_slices_pts: ", gpu_slices_pts.shape)
+		for pts in gpu_slices_pts:
+			slice_pts_mask = [cp.all(pt >= cp.array((0,0,0))) and cp.all(pt < cp.asarray(dims_size)) for pt in pts]
+			slice_pts_mask = cp.asarray(tuple(slice_pts_mask))
+			#print("len of slice_pts_mask:", len(slice_pts_mask))
+			slice_pts = pts[slice_pts_mask].astype(cp.int32)
+			#slice_pts = cp.extract(slice_pts_mask, pts)
+			if len(slice_pts) > 0:
+				n_slices += 1
+				gpu_fiber_pts = slice_pts if fiber_pts is None else \
+													cp.concatenate((fiber_pts, slice_pts))
+		fiber_pts = cp.asnumpy(gpu_fiber_pts)
+	else:
+		### Original way:
+		# Filter all the points which are outside the boundary
+		#pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
+		#				   np.all(np.less(np.array(pt), dims_size))
+		fiber_pts = None
+		for pts in slices_pts:
+			#slice_pts_mask = [pt_filter(pts) for pt in pts]
+			slice_pts_mask = [np.all(pt >= (0,0,0)) and np.all(pt < dims_size) for pt in pts]
+			slice_pts = pts[slice_pts_mask].astype(np.int32)
+			if len(slice_pts) > 0:
+				n_slices += 1
+				fiber_pts = slice_pts if fiber_pts is None else \
+													np.concatenate((fiber_pts, slice_pts))
 
-    # number of slices, e.g. steps.
-    fiber_len = np.round(n_slices * dl).astype(np.int32)
-    fiber_pts = fiber_pts.astype(np.int32)
-    return fiber_pts, fiber_len
+	# number of slices, e.g. steps.
+	fiber_len = np.round(n_slices * dl).astype(np.int32)
+	fiber_pts = fiber_pts.astype(np.int32)
+	return fiber_pts, fiber_len
 
 
 def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.2, 0.8),
-                    lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
-                    max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, verbose=False):
-    """Simulates fibers in a volume.
+					lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
+					max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, verbose=False):
+	"""Simulates fibers in a volume.
 
-    Simulates `n_fibers` of the radii and lengths in ranges `radius_lim` and `length_lim`,
-    oriented in a range of azimuth `azth_lim` and latitude \ elevation 'lat_lim' angles,
-    separated with a gap in a range of `gap_lim`. The simulation process stops if the number
-    of attempts to generate a fiber exceeds `max_fails`.
+	Simulates `n_fibers` of the radii and lengths in ranges `radius_lim` and `length_lim`,
+	oriented in a range of azimuth `azth_lim` and latitude \ elevation 'lat_lim' angles,
+	separated with a gap in a range of `gap_lim`. The simulation process stops if the number
+	of attempts to generate a fiber exceeds `max_fails`.
 
-    Parameters
-    ----------
-    volume_shape : tuple
-        Indicates the size of the volume.
+	Parameters
+	----------
+	volume_shape : tuple
+		Indicates the size of the volume.
 
-    n_fibers : integer
-        Indicates the number of fibers to be generated.
+	n_fibers : integer
+		Indicates the number of fibers to be generated.
 
-    radius_lim : tuple
-        Indicates the range of radii for fibers to be generated.
+	radius_lim : tuple
+		Indicates the range of radii for fibers to be generated.
 
-    length_lim : tuple
-        Indicates the range of lengths for fibers to be generated.
+	length_lim : tuple
+		Indicates the range of lengths for fibers to be generated.
 
-    lat_lim : tuple
-        Indicates the range of latitude / elevation component of the orientation angles of
-        the fibers to be generated.
+	lat_lim : tuple
+		Indicates the range of latitude / elevation component of the orientation angles of
+		the fibers to be generated.
 
-    azth_lim : tuple
-        Indicates the range of azimuth component of the orientation angles of the fibers to
-        be generated.
+	azth_lim : tuple
+		Indicates the range of azimuth component of the orientation angles of the fibers to
+		be generated.
 
-    gap_lim : tuple
-        Indicates the range of gaps separating the fibers from each other.
+	gap_lim : tuple
+		Indicates the range of gaps separating the fibers from each other.
 
-    max_fails : integer
-        Indicates the maximum number of failures during the simulation process.
+	max_fails : integer
+		Indicates the maximum number of failures during the simulation process.
 
-    max_len_loss : float
-        Indicates the maximum fraction of the generated fiber placed out of volume, exceeding
-        which the fiber is counted as failed.
+	max_len_loss : float
+		Indicates the maximum fraction of the generated fiber placed out of volume, exceeding
+		which the fiber is counted as failed.
 
-    intersect : boolean
-        Specifies if generated fibers can intersect.
+	intersect : boolean
+		Specifies if generated fibers can intersect.
 
-    Returns
-    -------
-    (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time) : tuple of arrays and numbers
-        The binary volume of generated fibers, the volumes of latitude / elevation and
-        azimuth angles at every fiber point, the volume of diameters at every fibers point,
-        the number of generated fibers and the simulation time.
-    """
-    ts = time.time()
+	Returns
+	-------
+	(volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time) : tuple of arrays and numbers
+		The binary volume of generated fibers, the volumes of latitude / elevation and
+		azimuth angles at every fiber point, the volume of diameters at every fibers point,
+		the number of generated fibers and the simulation time.
+	"""
+	ts = time.time()
 
-    volume = np.zeros(volume_shape, dtype=np.uint8)
-    lat_ref = np.zeros_like(volume, dtype=np.float32)
-    azth_ref = np.zeros_like(volume, dtype=np.float32)
-    diameter = np.zeros_like(volume, dtype=np.float32)
-    if verbose:
-        print("=================================================== ")
-        print("==== Start of the fibers simulation generation ==== ")
-        print("=================================================== ")
-        volume_str = "Volume of the simulated cell (in (pxl,pxl,pxl))="
-        print(volume_str, volume.shape)
+	volume = np.zeros(volume_shape, dtype=np.int8)
+	lat_ref = np.zeros_like(volume, dtype=np.float32)
+	azth_ref = np.zeros_like(volume, dtype=np.float32)
+	diameter = np.zeros_like(volume, dtype=np.float32)
+	if verbose:
+		print("=================================================== ")
+		print("==== Start of the fibers simulation generation ==== ")
+		print("=================================================== ")
+		volume_str = "Volume of the simulated cell (in (pxl,pxl,pxl))="
+		print(volume_str, volume.shape)
 
-    dims = np.array(volume.shape)[::-1]
-    # supposing the volume is a cube, if not there might be some issues
-    offset_lim = (-dims[0] / 2, dims[0] / 2)
+	dims = np.array(volume.shape)[::-1]
+	# supposing the volume is a cube, if not there might be some issues
+	offset_lim = (-dims[0] / 2, dims[0] / 2)
 
-    n_generated = 0
-    n_fails = 0
-    
-    while n_generated < n_fibers and n_fails < max_fails:
-        print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
-        length = min(volume_shape)
-        length = np.floor(length * random_in(length_lim, number=1)).astype(np.int32)
+	n_generated = 0
+	n_fails = 0
+	while n_generated < n_fibers and n_fails < max_fails:
+		print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
+		length = min(volume_shape)
+		length = np.floor(length * np.random.default_rng().uniform(length_lim[0], length_lim[1])).astype(np.int32)
 
-        offset = [random_in(offset_lim, number=1) for _ in [0, 1, 2]]
-        offset = np.round(offset).astype(np.int32)
+		offset = [np.random.default_rng().uniform(offset_lim[0], offset_lim[1]) for _ in [0, 1, 2]]
+		offset = np.round(offset).astype(np.int32)
 
-        azth = random_in(azth_lim, number=1)
-        lat = random_in(lat_lim, number=1)
-        radius = random_in(radius_lim, number=1)
+		azth = np.random.default_rng().uniform(azth_lim[0], azth_lim[1])
+		lat = np.random.default_rng().uniform(lat_lim[0], lat_lim[1])
+		radius = np.random.default_rng().uniform(radius_lim[0], radius_lim[1])
 
-        gap = random_in(gap_lim, number=1)
-        gap = np.round(gap).astype(np.int32)
+		gap = np.random.default_rng().uniform(gap_lim[0], gap_lim[1])
+		gap = np.round(gap).astype(np.int32)
 
-        fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset, parallelization, verbose)
-        gap_fiber_pts, gap_fiber_len = mkfiber(dims, length, radius + gap, azth, lat, offset, parallelization, verbose)
+		fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset, parallelization)
+		gap_fiber_pts, gap_fiber_len = mkfiber(dims, length, radius + gap, azth, lat, offset, parallelization)
 
-        # Length loss
-        if (1. - float(gap_fiber_len) / length) > max_len_loss:
-            n_fails = n_fails + 1
-            continue
+		# Length loss
+		if (1. - float(gap_fiber_len) / length) > max_len_loss:
+			n_fails = n_fails + 1
+			continue
 
-        # Intersection
-        if gap_fiber_pts.size:
-            X_gap, Y_gap, Z_gap = gap_fiber_pts[:, 0], gap_fiber_pts[:, 1], gap_fiber_pts[:, 2]
-            X, Y, Z = fiber_pts[:, 0], fiber_pts[:, 1], fiber_pts[:, 2]
+		# Intersection
+		if gap_fiber_pts.size:
+			X_gap, Y_gap, Z_gap = gap_fiber_pts[:, 0], gap_fiber_pts[:, 1], gap_fiber_pts[:, 2]
+			X, Y, Z = fiber_pts[:, 0], fiber_pts[:, 1], fiber_pts[:, 2]
 
-            if not intersect:
-                if np.any(volume[Z_gap, Y_gap, X_gap]):
-                    n_fails = n_fails + 1
+			if not intersect:
+				if np.any(volume[Z_gap, Y_gap, X_gap]):
+					n_fails = n_fails + 1
 
-                    if n_fails == max_fails:
-                        print("The number of fails exceeded. Generated {} fibers".\
-                                    format(n_generated))
+					if n_fails == max_fails:
+						print("The number of fails exceeded. Generated {} fibers".\
+									format(n_generated))
 
-                    continue
+					continue
 
-            # Fill the volume
-            volume[Z, Y, X] = 1
-            lat_ref[Z, Y, X] = lat
-            azth_ref[Z, Y, X] = azth
-            diameter[Z, Y, X] = radius * 2
-            n_generated = n_generated + 1
-            n_fails = 0
+			# Fill the volume
+			volume[Z, Y, X] = 1
+			lat_ref[Z, Y, X] = lat
+			azth_ref[Z, Y, X] = azth
+			diameter[Z, Y, X] = radius * 2
+			n_generated = n_generated + 1
+			n_fails = 0
 
-    te = time.time()
-    elapsed_time = te - ts
-    
-    #print(f"volume = {volume.shape}")
-    #print(f"lat_ref = {lat_ref.shape}")
-    #print(f"azth_ref = {azth_ref.shape}")
-    #print(f"diameter = {diameter.shape}") 
-    
-    volume = ndi.binary_fill_holes(volume)
-    #volume = ndi.median_filter(volume, footprint=morphology.ball(3))
-    
-    return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
+	te = time.time()
+	elapsed_time = te - ts
+	#print(f"volume = {volume.shape}")
+	#print(f"lat_ref = {lat_ref.shape}")
+	#print(f"azth_ref = {azth_ref.shape}")
+	#print(f"diameter = {diameter.shape}")
+	volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
+	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
 def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 10),
@@ -424,10 +425,10 @@ def simulate_particles(volume_shape, n_particles=1, radius_lim=(3, 30), max_fail
             print('n_generated = {}/{}, n_fails = {}/{}'.format(n_generated, n_particles,
                                                                 n_fails, max_fails))
 
-        offset = [random_in(olim, number=1) for olim in offset_lim]
+        offset = [np.random.default_rng().uniform(olim[0], olim[1]) for olim in offset_lim]
         offset = np.round(offset).astype(np.int32)
 
-        radius = np.round(random_in(radius_lim, number=1))
+        radius = np.round(np.random.default_rng().uniform(radius_lim[0], radius_lim[1]))
 
         gen_ball = morphology.ball(radius, dtype=np.int32)
         Z, Y, X = gen_ball.nonzero()
