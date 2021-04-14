@@ -8,7 +8,7 @@ from scipy import ndimage as ndi
 from skimage.segmentation import flood
 from sklearn import metrics
 from skimage import filters, morphology, data as skidata, exposure, draw
-import cupy as cp
+
 
 # Pour le multiprocessing
 import concurrent.futures
@@ -16,18 +16,18 @@ from multiprocessing import cpu_count
 
 
 def cpu_parallelization_slice_treat(i, pts, dims_size):
-	""" CPU parallelized version of 
-	test de parallélisation
-	"""
-	mask = list(map(lambda pt: np.all(pt >= (0, 0, 0)) and np.all(pt < dims_size), pts))
-	slice_pts_masked = pts[mask].astype(np.int32)
-	ret = None
-	try:
-		if len(slice_pts_masked) > 0:
-			ret = [i, slice_pts_masked]
-	except:
-		ret = None
-	return ret
+    """ CPU parallelized version of 
+    test de parallélisation
+    """
+    mask = list(map(lambda pt: np.all(pt >= (0, 0, 0)) and np.all(pt < dims_size), pts))
+    slice_pts_masked = pts[mask].astype(np.int32)
+    ret = None
+    try:
+        if len(slice_pts_masked) > 0:
+            ret = [i, slice_pts_masked]
+    except:
+        ret = None
+    return ret
 
 
 
