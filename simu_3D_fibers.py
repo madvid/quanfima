@@ -7,8 +7,8 @@ from quanfima import utils
 from quanfima import visualization as vis
 
 volume, lat_ref, azth_ref, diameter, _, _ = \
-		  simulation.simulate_fibers((128,128,128), n_fibers=8, max_fails=100,
-									 radius_lim=(2, 8), gap_lim=(3,5), parallelization="GPU")
+		  simulation.simulate_fibers((128,128,128), n_fibers=5, max_fails=100,
+									 radius_lim=(2, 8), gap_lim=(3,5), parallelization="normal")
 print("\nsucess")
 #exit()
 #volume = volume.astype(np.uint8)
