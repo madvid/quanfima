@@ -7,6 +7,7 @@ from multiprocessing import Pool
 from scipy import ndimage as ndi
 from sklearn import metrics
 from skimage import filters, morphology, data as skidata, exposure, draw
+import cupy as cp
 
 # Pour le multiprocessing
 import concurrent.futures
@@ -93,21 +94,24 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 	steps = range(half_steps - int(n_steps), half_steps)
 
 	# Draw circle perpedicular to the directional vector
-	X, Y = draw.disk((0, 0), radius)
-	Z = np.repeat(0, len(Y))
+	X, Y = draw.disk((0, 0), radius) # X and Y values of each voxels which constitued the circle
+	Z = np.repeat(0, len(Y)) # associated Z coordinates of the voxels
 	circle_pts = np.array([X, Y, Z])
 	circle_pts = np.dot(mx, circle_pts)
 	circle_pts = np.dot(mz, circle_pts)
 
 	# Propogate the circle profile along the directional vector
 	slice_pts = circle_pts.T
+	print("slice_pts : ", slice_pts, "\n")
 	dxyz = np.array([dx, dy, dz])
+	print("slice_pts : ", slice_pts, "\n")
 	step_shifts = np.array([step * dxyz for step in steps])  # [(dx,dy,dz), ...] for each step
 	center_shift = dims_size * 0.5 + offset_xyz  # (x, y ,z)
 
 	slices_pts = np.round(np.array([slice_pts + step_shift + center_shift
 										for step_shift in step_shifts]))
 
+	return 
 	n_slices = 0
 	if parallelization == "CPU":
 		# New way, CPU parallelized:
@@ -131,15 +135,30 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 		fiber_pts = sorted(fiber_pts, key=lambda idx_slice: fiber_pts[0])
 		fiber_pts = np.concatenate([elem[1] for elem in fiber_pts])
 	elif parallelization == "GPU":
-		pass
+		#pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
+		#				   np.all(np.less(np.array(pt), dims_size))
+		fiber_pts = None
+		gpu_slices_pts = cp.asarray(slices_pts)
+		print("shape de gput_slices_pts: ", gpu_slices_pts.shape)
+		for pts in gpu_slices_pts:
+			slice_pts_mask = [cp.all(pt >= cp.array((0,0,0))) and cp.all(pt < cp.asarray(dims_size)) for pt in pts]
+			slice_pts_mask = cp.asarray(tuple(slice_pts_mask))
+			#print("len of slice_pts_mask:", len(slice_pts_mask))
+			slice_pts = pts[slice_pts_mask].astype(cp.int32)
+			#slice_pts = cp.extract(slice_pts_mask, pts)
+			if len(slice_pts) > 0:
+				n_slices += 1
+				gpu_fiber_pts = slice_pts if fiber_pts is None else \
+													cp.concatenate((fiber_pts, slice_pts))
+		fiber_pts = cp.asnumpy(gpu_fiber_pts)
 	else:
 		### Original way:
 		# Filter all the points which are outside the boundary
-		pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
-						   np.all(np.less(np.array(pt), dims_size))
+		#pt_filter = lambda pt: np.all(np.greater_equal(pt, (0, 0, 0))) and \
+		#				   np.all(np.less(np.array(pt), dims_size))
 		fiber_pts = None
 		for pts in slices_pts:
-			slice_pts_mask = [pt_filter(pt) for pt in pts]
+			slice_pts_mask = [np.all(pt >= (0,0,0)) and np.all(pt < dims_size) for pt in pts]
 			slice_pts = pts[slice_pts_mask].astype(np.int32)
 			if len(slice_pts) > 0:
 				n_slices += 1
@@ -206,7 +225,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	"""
 	ts = time.time()
 
-	volume = np.zeros(volume_shape, dtype=np.int32)
+	volume = np.zeros(volume_shape, dtype=np.int8)
 	lat_ref = np.zeros_like(volume, dtype=np.float32)
 	azth_ref = np.zeros_like(volume, dtype=np.float32)
 	diameter = np.zeros_like(volume, dtype=np.float32)
@@ -275,6 +294,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	#print(f"lat_ref = {lat_ref.shape}")
 	#print(f"azth_ref = {azth_ref.shape}")
 	#print(f"diameter = {diameter.shape}")
+	volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
 	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
@@ -654,7 +674,7 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
 	def median_fltr(data, footprint):
 		out = np.zeros_like(data, dtype=np.uint8)
 
-		for i in xrange(data.shape[0]):
+		for i in range(data.shape[0]):
 			out[i] = filters.rank.median(data[i], selem=footprint)
 
 		return out
@@ -664,7 +684,7 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
 		data_8bit = exposure.rescale_intensity(data, in_range='image',
 											   out_range=np.uint8).astype(np.uint8)
 
-		for i in xrange(data_seg.shape[0]):
+		for i in range(data_seg.shape[0]):
 			dslice = data_8bit[i]
 			th_val = filters.threshold_otsu(dslice)
 			data_seg[i] = (dslice > th_val).astype(np.uint8)
