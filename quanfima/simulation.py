@@ -14,14 +14,14 @@ import concurrent.futures
 from multiprocessing import cpu_count
 
 def random_in(rng, number=1):
-    """
-    Returns a random value within a given range.
-    """
-    start, end = rng
-    
-    values = np.random.random_sample(number) * (end - start) + start
-    
-    return values[0] if number == 1 else values
+	"""
+	Returns a random value within a given range.
+	"""
+	start, end = rng
+	
+	values = np.random.random_sample(number) * (end - start) + start
+	
+	return values[0] if number == 1 else values
 
 
 def cpu_parallelization_slice_treat(i, pts, dims_size):
@@ -121,8 +121,8 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 		tot = slices_pts.shape
 		n_cpu = cpu_count()
 		cpu_use = int(n_cpu / 2)
-        if verbose: 
-            print('cpu: ', cpu_use)
+		if verbose:
+			print('cpu: ', cpu_use)
 		results=[]
 		fiber_pts = []
 		with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
@@ -303,343 +303,343 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 
 def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 10),
-                      length_lim=(0.2, 0.8), gap_lim=(3, 10), max_fails=100,
-                      median_rad=3, intersect=False, output_dir=None, params=None):
-    """Simulates speficied configurations of fibers and stores in a npy file.
+					  length_lim=(0.2, 0.8), gap_lim=(3, 10), max_fails=100,
+					  median_rad=3, intersect=False, output_dir=None, params=None):
+	"""Simulates speficied configurations of fibers and stores in a npy file.
 
-    Simulates a number of fiber configurations speficied in `params` with `n_fibers` of the
-    radii and lengths in ranges `radius_lim` and `length_lim`, separated with gaps in a range
-    of `gap_lim`. The simulation process stops if the number of attempts to generate a fiber
-    exceeds `max_fails`.
+	Simulates a number of fiber configurations speficied in `params` with `n_fibers` of the
+	radii and lengths in ranges `radius_lim` and `length_lim`, separated with gaps in a range
+	of `gap_lim`. The simulation process stops if the number of attempts to generate a fiber
+	exceeds `max_fails`.
 
-    Parameters
-    ----------
-    volume_size : tuple
-        Indicates the size of the volume.
+	Parameters
+	----------
+	volume_size : tuple
+		Indicates the size of the volume.
 
-    n_fibers : integer
-        Indicates the number of fibers to be generated.
+	n_fibers : integer
+		Indicates the number of fibers to be generated.
 
-    radius_lim : tuple
-        Indicates the range of radii for fibers to be generated.
+	radius_lim : tuple
+		Indicates the range of radii for fibers to be generated.
 
-    length_lim : tuple
-        Indicates the range of lengths for fibers to be generated.
+	length_lim : tuple
+		Indicates the range of lengths for fibers to be generated.
 
-    gap_lim : tuple
-        Indicates the range of gaps separating the fibers from each other.
+	gap_lim : tuple
+		Indicates the range of gaps separating the fibers from each other.
 
-    max_fails : integer
-        Indicates the maximum number of failures during the simulation process.
+	max_fails : integer
+		Indicates the maximum number of failures during the simulation process.
 
-    median_rad : integer
-        Indicates the radius of median filter to fill holes occured due to rounding of
-        coordinates of the generated fibers.
+	median_rad : integer
+		Indicates the radius of median filter to fill holes occured due to rounding of
+		coordinates of the generated fibers.
 
-    intersect : boolean
-        Specifies if generated fibers can intersect.
+	intersect : boolean
+		Specifies if generated fibers can intersect.
 
-    output_dir : str
-        Indicates the path to the output folder where the data will be stored.
+	output_dir : str
+		Indicates the path to the output folder where the data will be stored.
 
-    params : dict
-        Indicates the configurations of orientation of fibers to be generated.
+	params : dict
+		Indicates the configurations of orientation of fibers to be generated.
 
-    Returns
-    -------
-    out : dict
-        The dictionary of generated datasets of specified configurations.
-    """
-    if params is None:
-        params = {'aligned': {'lat_rng': (15, 15), 'azth_rng': (27, 27)},
-                  'medium': {'lat_rng': (0, 45), 'azth_rng': (-45, 45)},
-                  'disordered': {'lat_rng': (0, 90), 'azth_rng': (-89, 90)}}
+	Returns
+	-------
+	out : dict
+		The dictionary of generated datasets of specified configurations.
+	"""
+	if params is None:
+		params = {'aligned': {'lat_rng': (15, 15), 'azth_rng': (27, 27)},
+				  'medium': {'lat_rng': (0, 45), 'azth_rng': (-45, 45)},
+				  'disordered': {'lat_rng': (0, 90), 'azth_rng': (-89, 90)}}
 
-    out = {}
-    for name, config in params.items():
-        data, lat_data, azth_data, diameter_data, n_gen_fibers, elapsed_time = \
-                simulate_fibers(volume_size,
-                                lat_lim=tuple([np.deg2rad(v) for v in config['lat_rng']]),
-                                azth_lim=tuple([np.deg2rad(v) for v in config['azth_rng']]),
-                                radius_lim=radius_lim,
-                                n_fibers=n_fibers,
-                                max_fails=max_fails,
-                                gap_lim=gap_lim,
-                                length_lim=length_lim,
-                                intersect=intersect)
+	out = {}
+	for name, config in params.items():
+		data, lat_data, azth_data, diameter_data, n_gen_fibers, elapsed_time = \
+				simulate_fibers(volume_size,
+								lat_lim=tuple([np.deg2rad(v) for v in config['lat_rng']]),
+								azth_lim=tuple([np.deg2rad(v) for v in config['azth_rng']]),
+								radius_lim=radius_lim,
+								n_fibers=n_fibers,
+								max_fails=max_fails,
+								gap_lim=gap_lim,
+								length_lim=length_lim,
+								intersect=intersect)
 
-        data_8bit = data.astype(np.uint8)
-        data_8bit = ndi.binary_fill_holes(data_8bit)
-        data_8bit = ndi.median_filter(data_8bit, footprint=morphology.ball(median_rad))
-        lat_data = ndi.median_filter(lat_data, footprint=morphology.ball(median_rad))
-        azth_data = ndi.median_filter(azth_data, footprint=morphology.ball(median_rad))
-        diameter_data = ndi.median_filter(diameter_data, footprint=morphology.ball(median_rad))
+		data_8bit = data.astype(np.uint8)
+		data_8bit = ndi.binary_fill_holes(data_8bit)
+		data_8bit = ndi.median_filter(data_8bit, footprint=morphology.ball(median_rad))
+		lat_data = ndi.median_filter(lat_data, footprint=morphology.ball(median_rad))
+		azth_data = ndi.median_filter(azth_data, footprint=morphology.ball(median_rad))
+		diameter_data = ndi.median_filter(diameter_data, footprint=morphology.ball(median_rad))
 
-        out[name] = {'data': data_8bit,
-                     'lat': lat_data,
-                     'azth': azth_data,
-                     'diameter': diameter_data,
-                     'skeleton': morphology.skeletonize_3d(data_8bit).astype(np.float32),
-                     'props': {'n_gen_fibers': n_gen_fibers,
-                               'time': elapsed_time,
-                               'intersect': intersect}}
+		out[name] = {'data': data_8bit,
+					 'lat': lat_data,
+					 'azth': azth_data,
+					 'diameter': diameter_data,
+					 'skeleton': morphology.skeletonize_3d(data_8bit).astype(np.float32),
+					 'props': {'n_gen_fibers': n_gen_fibers,
+							   'time': elapsed_time,
+							   'intersect': intersect}}
 
-    if output_dir is not None and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+	if output_dir is not None and not os.path.exists(output_dir):
+		os.makedirs(output_dir)
 
-    np.save(os.path.join(output_dir, 'dataset_fibers_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
-                                            format(n_fibers,
-                                                   radius_lim[0], radius_lim[-1],
-                                                   gap_lim[0], gap_lim[-1],
-                                                   median_rad, int(intersect))), out)
+	np.save(os.path.join(output_dir, 'dataset_fibers_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
+											format(n_fibers,
+												   radius_lim[0], radius_lim[-1],
+												   gap_lim[0], gap_lim[-1],
+												   median_rad, int(intersect))), out)
 
-    return out
+	return out
 
 
 def simulate_particles(volume_shape, n_particles=1, radius_lim=(3, 30), max_fails=10):
-    """Simulates particles in a volume.
+	"""Simulates particles in a volume.
 
-    Simulates `n_particles` of the radii in a range `radius_lim`. The simulation process
-    stops if the number of attempts to generate a particle exceeds `max_fails`.
+	Simulates `n_particles` of the radii in a range `radius_lim`. The simulation process
+	stops if the number of attempts to generate a particle exceeds `max_fails`.
 
-    Parameters
-    ----------
-    volume_shape : tuple
-        Indicates the size of the volume.
+	Parameters
+	----------
+	volume_shape : tuple
+		Indicates the size of the volume.
 
-    n_particles : integer
-        Indicates the number of particles to be generated.
+	n_particles : integer
+		Indicates the number of particles to be generated.
 
-    radius_lim : tuple
-        Indicates the range of radii for particles to be generated.
+	radius_lim : tuple
+		Indicates the range of radii for particles to be generated.
 
-    max_fails : integer
-        Indicates the maximum number of failures during the simulation process.
+	max_fails : integer
+		Indicates the maximum number of failures during the simulation process.
 
-    Returns
-    -------
-    (volume, diameter, n_generated, elapsed_time) : tuple of arrays and numbers
-        The binary volume of generated particles, the volume of diameters at every point of
-        particles, the number of generated particles and the simulation time.
-    """
-    ts = time.time()
+	Returns
+	-------
+	(volume, diameter, n_generated, elapsed_time) : tuple of arrays and numbers
+		The binary volume of generated particles, the volume of diameters at every point of
+		particles, the number of generated particles and the simulation time.
+	"""
+	ts = time.time()
 
-    volume = np.zeros(volume_shape, dtype=np.uint8)
-    diameter = np.zeros_like(volume, dtype=np.int32)
+	volume = np.zeros(volume_shape, dtype=np.uint8)
+	diameter = np.zeros_like(volume, dtype=np.int32)
 
-    dims = np.array(volume.shape)
-    offset_lim = zip(itertools.repeat(0), dims)
+	dims = np.array(volume.shape)
+	offset_lim = zip(itertools.repeat(0), dims)
 
-    n_generated = 0
-    n_fails = 0
-    while n_generated < n_particles and n_fails < max_fails:
-        if (n_generated % 100 == 0) or (n_generated == n_particles):
-            print('n_generated = {}/{}, n_fails = {}/{}'.format(n_generated, n_particles,
-                                                                n_fails, max_fails))
+	n_generated = 0
+	n_fails = 0
+	while n_generated < n_particles and n_fails < max_fails:
+		if (n_generated % 100 == 0) or (n_generated == n_particles):
+			print('n_generated = {}/{}, n_fails = {}/{}'.format(n_generated, n_particles,
+																n_fails, max_fails))
 
-        offset = [random_in(olim, number=1) for olim in offset_lim]
-        offset = np.round(offset).astype(np.int32)
+		offset = [random_in(olim, number=1) for olim in offset_lim]
+		offset = np.round(offset).astype(np.int32)
 
-        radius = np.round(random_in(radius_lim, number=1))
+		radius = np.round(random_in(radius_lim, number=1))
 
-        gen_ball = morphology.ball(radius, dtype=np.int32)
-        Z, Y, X = gen_ball.nonzero()
+		gen_ball = morphology.ball(radius, dtype=np.int32)
+		Z, Y, X = gen_ball.nonzero()
 
-        Z += offset[0]
-        Y += offset[1]
-        X += offset[2]
+		Z += offset[0]
+		Y += offset[1]
+		X += offset[2]
 
-        if np.max(X) >= dims[0] or np.min(X) < 0 or \
-           np.max(Y) >= dims[1] or np.min(Y) < 0 or \
-           np.max(Z) >= dims[2] or np.min(Z) < 0:
+		if np.max(X) >= dims[0] or np.min(X) < 0 or \
+		   np.max(Y) >= dims[1] or np.min(Y) < 0 or \
+		   np.max(Z) >= dims[2] or np.min(Z) < 0:
 
-            n_fails = n_fails + 1
-            continue
+			n_fails = n_fails + 1
+			continue
 
-        if np.any(volume[Z, Y, X]):
-            n_fails = n_fails + 1
+		if np.any(volume[Z, Y, X]):
+			n_fails = n_fails + 1
 
-            if n_fails == max_fails:
-                print("The number of fails exceeded. Generated {} particles".\
-                            format(n_generated))
+			if n_fails == max_fails:
+				print("The number of fails exceeded. Generated {} particles".\
+							format(n_generated))
 
-            continue
+			continue
 
-        # Fill the volume
-        volume[Z, Y, X] = 1
-        diameter[Z, Y, X] = radius * 2
-        n_generated = n_generated + 1
-        n_fails = 0
+		# Fill the volume
+		volume[Z, Y, X] = 1
+		diameter[Z, Y, X] = radius * 2
+		n_generated = n_generated + 1
+		n_fails = 0
 
-    te = time.time()
-    elapsed_time = te - ts
+	te = time.time()
+	elapsed_time = te - ts
 
-    return (volume, diameter, n_generated, elapsed_time)
+	return (volume, diameter, n_generated, elapsed_time)
 
 
 def generate_particle_dataset(volume_size=(512, 512, 512), n_particles=500,
-                              radius_lim=(4, 10), max_fails=100, output_dir=None):
-    """Simulates a speficied number of particles and stores complete dataset in a npy file.
+							  radius_lim=(4, 10), max_fails=100, output_dir=None):
+	"""Simulates a speficied number of particles and stores complete dataset in a npy file.
 
-    Parameters
-    ----------
-    volume_size : tuple
-        Indicates the size of the volume.
+	Parameters
+	----------
+	volume_size : tuple
+		Indicates the size of the volume.
 
-    n_particles : integer
-        Indicates the number of particles to be generated.
+	n_particles : integer
+		Indicates the number of particles to be generated.
 
-    radius_lim : tuple
-        Indicates the range of radii for particles to be generated.
+	radius_lim : tuple
+		Indicates the range of radii for particles to be generated.
 
-    max_fails : integer
-        Indicates the maximum number of failures during the simulation process.
+	max_fails : integer
+		Indicates the maximum number of failures during the simulation process.
 
-    output_dir : str
-        Indicates the path to the output folder where the data will be stored.
+	output_dir : str
+		Indicates the path to the output folder where the data will be stored.
 
-    Returns
-    -------
-    out : dict
-        The dictionary of generated dataset.
-    """
-    out = {}
+	Returns
+	-------
+	out : dict
+		The dictionary of generated dataset.
+	"""
+	out = {}
 
-    data, diameter_data, n_gen_particle, elapsed_time = \
-                            simulate_particles(volume_size,
-                                               n_particles=n_particles,
-                                               radius_lim=radius_lim,
-                                               max_fails=max_fails)
+	data, diameter_data, n_gen_particle, elapsed_time = \
+							simulate_particles(volume_size,
+											   n_particles=n_particles,
+											   radius_lim=radius_lim,
+											   max_fails=max_fails)
 
-    out['normal'] = {'data': data,
-                     'diameter': diameter_data,
-                     'props': {'n_gen_particles': n_gen_particle,
-                               'time': elapsed_time}}
+	out['normal'] = {'data': data,
+					 'diameter': diameter_data,
+					 'props': {'n_gen_particles': n_gen_particle,
+							   'time': elapsed_time}}
 
-    if output_dir is not None and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+	if output_dir is not None and not os.path.exists(output_dir):
+		os.makedirs(output_dir)
 
-    np.save(os.path.join(output_dir,
-                         'dataset_particles_n{}_r{}_{}.npy'.format(n_particles,
-                                                                   radius_lim[0],
-                                                                   radius_lim[-1])), out)
-    return out
+	np.save(os.path.join(output_dir,
+						 'dataset_particles_n{}_r{}_{}.npy'.format(n_particles,
+																   radius_lim[0],
+																   radius_lim[-1])), out)
+	return out
 
 
 def generate_blobs(volume_size, blob_size_fraction=0.1, transparency_ratio=0.5, sigma=90.):
-    """Generates random blobs smoothed with Gaussian filter in a volume.
+	"""Generates random blobs smoothed with Gaussian filter in a volume.
 
-    Generates several blobs of random size in a volume using function from scikit-image,
-    which are subsequently smoothed with a Gaussian filter of a large sigma to imitate
-    3D uneven illumination of the volume.
+	Generates several blobs of random size in a volume using function from scikit-image,
+	which are subsequently smoothed with a Gaussian filter of a large sigma to imitate
+	3D uneven illumination of the volume.
 
-    Parameters
-    ----------
-    volume_size : tuple
-        Indicates the size of the volume.
+	Parameters
+	----------
+	volume_size : tuple
+		Indicates the size of the volume.
 
-    blob_size_fraction : float
-        Indicates the fraction of volume occupied by blobs.
+	blob_size_fraction : float
+		Indicates the fraction of volume occupied by blobs.
 
-    transparency_ratio : float
-        Indicates the transparency of blobs in a range [0, 1].
+	transparency_ratio : float
+		Indicates the transparency of blobs in a range [0, 1].
 
-    sigma : float
-        Indicates the sigma of Gaussian filter.
+	sigma : float
+		Indicates the sigma of Gaussian filter.
 
-    Returns
-    -------
-    blobs_smeared : ndarray
-        The volume with smoothed blobs of a specified transparency.
-    """
-    blobs = skidata.binary_blobs(length=max(volume_size),
-                                 blob_size_fraction=blob_size_fraction,
-                                 n_dim=len(volume_size),
-                                 seed=1)
-    blobs = blobs.astype(np.float32)
+	Returns
+	-------
+	blobs_smeared : ndarray
+		The volume with smoothed blobs of a specified transparency.
+	"""
+	blobs = skidata.binary_blobs(length=max(volume_size),
+								 blob_size_fraction=blob_size_fraction,
+								 n_dim=len(volume_size),
+								 seed=1)
+	blobs = blobs.astype(np.float32)
 
-    blobs_smeared = ndi.gaussian_filter(blobs, sigma) * transparency_ratio
-    return blobs_smeared
+	blobs_smeared = ndi.gaussian_filter(blobs, sigma) * transparency_ratio
+	return blobs_smeared
 
 
 def generate_noised_data(datasets_path, noise_levels=[0.0, 0.15, 0.3],
-                         smooth_levels=[0.0, 1.0, 2.0], blobs=None, use_median=True,
-                         median_rad=3, output_dir=None, n_processes=9):
-    """Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
+						 smooth_levels=[0.0, 1.0, 2.0], blobs=None, use_median=True,
+						 median_rad=3, output_dir=None, n_processes=9):
+	"""Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
 
-    Contaminates the datasets (generated with `generate_datasets` function) with the specified
-    level of additive Gaussian noise and smoothing, uneven illumination can be added if
-    `blobs` is provided. The contaminating process can be performed in a parallel `n_processes`
-    processes.
+	Contaminates the datasets (generated with `generate_datasets` function) with the specified
+	level of additive Gaussian noise and smoothing, uneven illumination can be added if
+	`blobs` is provided. The contaminating process can be performed in a parallel `n_processes`
+	processes.
 
-    Parameters
-    ----------
-    datasets_path : str
-        Indicates the path to dataset.
+	Parameters
+	----------
+	datasets_path : str
+		Indicates the path to dataset.
 
-    noise_levels : array
-        Indicates the array of standard deviations of noise.
+	noise_levels : array
+		Indicates the array of standard deviations of noise.
 
-    smooth_levels : array
-        Indicates the array of sigma values of Gaussian filter.
+	smooth_levels : array
+		Indicates the array of sigma values of Gaussian filter.
 
-    blobs : ndarray
-        Indicates the volume of uneven illumination generated by `generate_blobs`.
+	blobs : ndarray
+		Indicates the volume of uneven illumination generated by `generate_blobs`.
 
-    use_median : boolean
-        Specifies if the median filter should be applied after addition of noise.
+	use_median : boolean
+		Specifies if the median filter should be applied after addition of noise.
 
-    median_rad : integer
-        Indicates the size of median filter.
+	median_rad : integer
+		Indicates the size of median filter.
 
-    output_dir : str
-        Indicates the path to the output folder where the data will be stored.
+	output_dir : str
+		Indicates the path to the output folder where the data will be stored.
 
-    n_processes : integer
-        Indicates the number of parallel processes.
+	n_processes : integer
+		Indicates the number of parallel processes.
 
-    Returns
-    -------
-    results : array of dicts
-        The array of dictionaries containing paths to contaminated datasets, and other
-        properties.
-    """
-    datasets_names = np.load(datasets_path).item().keys()
-    n_datasets = len(datasets_names)
+	Returns
+	-------
+	results : array of dicts
+		The array of dictionaries containing paths to contaminated datasets, and other
+		properties.
+	"""
+	datasets_names = np.load(datasets_path).item().keys()
+	n_datasets = len(datasets_names)
 
-    dataset_filename = os.path.basename(datasets_path)
-    dataset_filename = os.path.splitext(dataset_filename)[0]
-    output_dir = os.path.join(output_dir, dataset_filename)
+	dataset_filename = os.path.basename(datasets_path)
+	dataset_filename = os.path.splitext(dataset_filename)[0]
+	output_dir = os.path.join(output_dir, dataset_filename)
 
-    data_items = [(dname, dpath, blb, odir)
-                      for dname, dpath, blb, odir in zip(datasets_names,
-                                                         [datasets_path]*n_datasets,
-                                                         [blobs]*n_datasets,
-                                                         [output_dir]*n_datasets)]
+	data_items = [(dname, dpath, blb, odir)
+					  for dname, dpath, blb, odir in zip(datasets_names,
+														 [datasets_path]*n_datasets,
+														 [blobs]*n_datasets,
+														 [output_dir]*n_datasets)]
 
-    params = [data_items, noise_levels, smooth_levels]
-    params = [p for p in itertools.product(*params)]
+	params = [data_items, noise_levels, smooth_levels]
+	params = [p for p in itertools.product(*params)]
 
-    proc_pool = Pool(processes=n_processes)
-    results = proc_pool.map(unpack_additive_noise, params)
-    proc_pool.close()
-    proc_pool.join()
-    proc_pool.terminate()
+	proc_pool = Pool(processes=n_processes)
+	results = proc_pool.map(unpack_additive_noise, params)
+	proc_pool.close()
+	proc_pool.join()
+	proc_pool.terminate()
 
-    np.save(os.path.join(output_dir, 'params.npy'), results)
+	np.save(os.path.join(output_dir, 'params.npy'), results)
 
-    return results
+	return results
 
 
 def unpack_additive_noise(args):
-    """Unpack arguments and return result of `additive_noise` function.
-    """
-    return additive_noise(*args)
+	"""Unpack arguments and return result of `additive_noise` function.
+	"""
+	return additive_noise(*args)
 
 
 def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3):
-<<<<<<< HEAD
-	"""Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
+	"""
+	Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
 
 	Contaminates the datasets (generated with `generate_datasets` function) with the specified
 	level of additive Gaussian noise and smoothing, uneven illumination can be added by
@@ -697,25 +697,29 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
 		return data_seg
 
 	print('{}: Noise: {} | Smooth: {}'.format(name, noise_lvl, smooth_lvl))
-
+	
+	data_ref_skel = exposure.rescale_intensity(data_skel,out_range=(0, 1))
+	data_ref_skel = data_ref_skel.astype(np.uint8)
+	
 	data_ref = data.astype(np.float32)
-	data_ref_skel = exposure.rescale_intensity(data_skel,
-											   out_range=(0, 1)).astype(np.uint8)
+	data_noised = apply_noise(data, noise_lvl, smooth_lvl, use_median, median_rad, blobs)
+	
+	# data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
 
-	data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
+	# if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
+	#     data_noised += blobs
 
-	if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
-		data_noised += blobs
+	# if smooth_lvl != 0:
+	#     data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
 
-	if smooth_lvl != 0:
-		data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
+	# snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
+	# data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
 
+	# if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
+	#     data_noised = median_fltr(data_noised, morphology.disk(median_rad))
+	
 	snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
-	data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
-
-	if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
-		data_noised = median_fltr(data_noised, morphology.disk(median_rad))
-
+	
 	data_noised_seg = threshold_dataset(data_noised)
 	data_noised_skel = morphology.skeletonize_3d(data_noised_seg)
 
@@ -755,177 +759,54 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
 		np.save(dataset_outpath, data_out)
 
 	return datasets_props
-=======
-    """
-    Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
-
-    Contaminates the datasets (generated with `generate_datasets` function) with the specified
-    level of additive Gaussian noise and smoothing, uneven illumination can be added by
-    extracting `blobs` from `params` tuple with some other arguments.
-
-    Parameters
-    ----------
-    params : tuple
-        Contains `name`, `dataset_path`, `blobs`, `output_dir` arguments passed from
-        `generate_noised_data`.
-
-    noise_level : float
-        Indicates the standard deviations of noise.
-
-    smooth_level : float
-        Indicates the sigma value of Gaussian filter.
-
-    use_median : boolean
-        Specifies if the median filter should be applied after addition of noise.
-
-    median_rad : integer
-        Indicates the size of median filter.
-
-    Returns
-    -------
-    datasets_props : dict
-        The dictionary containing the path to the reference dataset, the path to the
-        contaminated dataset, the generated name, the SNR level, the precision, the recall
-        and f1-score, and the level of noise and smoothing.
-    """
-    name, dataset_path, blobs, output_dir = params
-
-    datasets = np.load(dataset_path).item()
-    data = datasets[name]['data']
-    data_skel = datasets[name]['skeleton']
-
-    def median_fltr(data, footprint):
-        out = np.zeros_like(data, dtype=np.uint8)
-
-        for i in range(data.shape[0]):
-            out[i] = filters.rank.median(data[i], selem=footprint)
-
-        return out
-
-    def threshold_dataset(data):
-        data_seg = np.zeros_like(data, dtype=np.uint8)
-        data_8bit = exposure.rescale_intensity(data, in_range='image',
-                                               out_range=np.uint8).astype(np.uint8)
-
-        for i in range(data_seg.shape[0]):
-            dslice = data_8bit[i]
-            th_val = filters.threshold_otsu(dslice)
-            data_seg[i] = (dslice > th_val).astype(np.uint8)
-
-        return data_seg
-
-    print('{}: Noise: {} | Smooth: {}'.format(name, noise_lvl, smooth_lvl))
-    
-    data_ref_skel = exposure.rescale_intensity(data_skel,out_range=(0, 1))
-    data_ref_skel = data_ref_skel.astype(np.uint8)
-    
-    data_ref = data.astype(np.float32)
-    data_noised = apply_noise(data, noise_lvl, smooth_lvl, use_median, median_rad, blobs)
-    
-    # data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
-
-    # if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
-    #     data_noised += blobs
-
-    # if smooth_lvl != 0:
-    #     data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
-
-    # snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
-    # data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
-
-    # if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
-    #     data_noised = median_fltr(data_noised, morphology.disk(median_rad))
-    
-    snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
-    
-    data_noised_seg = threshold_dataset(data_noised)
-    data_noised_skel = morphology.skeletonize_3d(data_noised_seg)
-
-    precision, recall, fbeta_score, support = \
-                    metrics.precision_recall_fscore_support(data_ref_skel.flatten(),
-                                                            data_noised_skel.flatten(),
-                                                            beta=1.0,
-                                                            pos_label=1,
-                                                            average='binary')
-
-    print('Precision: {}, Recall: {}, F1-score: {}'.format(precision, recall, fbeta_score))
-
-    data_out = {'data': data_ref,
-                'data_noised': data_noised,
-                'skeleton': data_ref_skel,
-                'skeleton_noised': data_noised_skel,
-                'seg_noised': data_noised_seg}
-
-    dataset_outpath = os.path.join(output_dir,
-                                'dataset_noised_fibers_{}_nl{}_sl{}.npy'.
-                                            format(name, noise_lvl, smooth_lvl))
-
-    datasets_props = {'ref_dataset_path': dataset_path,
-                      'dataset_path': dataset_outpath,
-                      'name': name,
-                      'snr': snr,
-                      'precision': precision,
-                      'recall': recall,
-                      'f1_score': fbeta_score,
-                      'adgauss_std': noise_lvl,
-                      'smooth_sigma': smooth_lvl}
-
-    if output_dir is not None:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        np.save(dataset_outpath, data_out)
-
-    return datasets_props
 
 def apply_noise(data, 
-                noise_lvl = 0.15, 
-                smooth_lvl = 1, 
-                use_median = True, 
-                median_rad=3, 
-                blobs = None): 
-    """
-    
+				noise_lvl = 0.15, 
+				smooth_lvl = 1, 
+				use_median = True, 
+				median_rad=3, 
+				blobs = None): 
+	"""
+	
 
-    Parameters
-    ----------
-    data : TYPE
-        DESCRIPTION.
-    
-    noise_lvl : float
-        Indicates the standard deviations of noise.
+	Parameters
+	----------
+	data : TYPE
+		DESCRIPTION.
+	
+	noise_lvl : float
+		Indicates the standard deviations of noise.
 
-    smooth_lvl : float
-        Indicates the sigma value of Gaussian filter.
+	smooth_lvl : float
+		Indicates the sigma value of Gaussian filter.
 
-    use_median : boolean
-        Specifies if the median filter should be applied after addition of noise.
+	use_median : boolean
+		Specifies if the median filter should be applied after addition of noise.
 
-    median_rad : integer
-        Indicates the size of median filter.
-        
-    blobs : TYPE, optional
-        DESCRIPTION. The default is None.
+	median_rad : integer
+		Indicates the size of median filter.
+		
+	blobs : TYPE, optional
+		DESCRIPTION. The default is None.
 
-    Returns
-    -------
-    data_noised : TYPE
-        DESCRIPTION.
+	Returns
+	-------
+	data_noised : TYPE
+		DESCRIPTION.
 
-    """
-    
-    data_ref = data.astype(np.float32)
-    data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
-    
-    if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
-        data_noised += blobs
+	"""
+	
+	data_ref = data.astype(np.float32)
+	data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
+	
+	if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
+		data_noised += blobs
 
-    if smooth_lvl != 0:
-        data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
-    
-    data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
-    
-    if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
-        data_noised = filters.median(data_noised, morphology.ball(median_rad))
-    return data_noised
->>>>>>> 641bb71481402e320d98fbda033dade2bf55732c
+	if smooth_lvl != 0:
+		data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
+	
+	data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
+	
+	if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
+		data_noised = filters.median(data_noised, morphology.ball(median_rad))
+	return data_noised
