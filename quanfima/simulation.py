@@ -234,6 +234,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 	n_generated = 0
 	n_fails = 0
+	fiber_id = 1
 	while n_generated < n_fibers and n_fails < max_fails:
 		print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
 		length = min(volume_shape)
@@ -273,7 +274,8 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 					continue
 
 			# Fill the volume
-			volume[Z, Y, X] = 1
+			volume[Z, Y, X] = fiber_id
+			fiber_id += 1
 			lat_ref[Z, Y, X] = lat
 			azth_ref[Z, Y, X] = azth
 			diameter[Z, Y, X] = radius * 2
