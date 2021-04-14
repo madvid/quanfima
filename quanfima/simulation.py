@@ -170,7 +170,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 
 def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.2, 0.8),
 					lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
-					max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, verbose=False):
+					max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, exclusion_zone = False, verbose=False):
 	"""Simulates fibers in a volume.
 
 	Simulates `n_fibers` of the radii and lengths in ranges `radius_lim` and `length_lim`,
@@ -227,21 +227,33 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	azth_ref = np.zeros_like(volume, dtype=np.float32)
 	diameter = np.zeros_like(volume, dtype=np.float32)
 	if verbose:
-		print("=================================================== ")
-		print("==== Start of the fibers simulation generation ==== ")
-		print("=================================================== ")
-		volume_str = "Volume of the simulated cell (in (pxl,pxl,pxl))="
+		print("======================================================= ")
+		print("====== Start of the fibers simulation generation ====== ")
+		print("======================================================= ")
+		print("Parallelization: [{parallelization}]")
+		volume_str = "Volume of cell (in (pxl,pxl,pxl))="
 		print(volume_str, volume.shape)
+		print(f"Attempting number of fibers: {n_fibers}") 
+		print(f"Intersection allowed: {str(intersect)}")
+		print(f"Exclusion volume around fibers: {str(exclusion_zone)}")
+		if intersect and exclusion_zone:
+			e_str = "Parameter Errors: intersect cannot be True if exclusion_zone is True."
+			raise Exception(e_str)
+		print("\n________  PARAMETERS ________ :")
+		print(f"Radius (in pixels): min = {radius_lim[0]} -- max = {radius_lim[1]}")
+		print(f"Length range of fibers (% of min volume size): min = {length_lim[0]} -- max = {length_lim[1]}")
+		print(f"Latitude range (rad|degree): min = {lat_lim[0]:.2f} | {np.rad2deg(lat_lim[0]):.2f} -- max = {lat_lim[1]:.2f} | {np.rad2deg(lat_lim[1]):.2f}")
+		print(f"Azimuth (rad|degree): min = {azth_lim[0]:.2f} | {np.rad2deg(azth_lim[0]):.2f} -- max = {azth_lim[1]:.2f} | {np.rad2deg(azth_lim[1]):.2f}")
+		print("======================================================= ")
 
 	dims = np.array(volume.shape)[::-1]
 	# supposing the volume is a cube, if not there might be some issues
 	offset_lim = (-dims[0] / 2, dims[0] / 2)
-
 	n_generated = 0
 	n_fails = 0
-	fiber_id = 1
+
 	while n_generated < n_fibers and n_fails < max_fails:
-		print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
+		#print(f"n_generated: {n_generated}/{n_fibers} -- n_fails: {n_fails}/{max_fails}", end="\r")
 		length = min(volume_shape)
 		length = np.floor(length * np.random.default_rng().uniform(length_lim[0], length_lim[1])).astype(np.int32)
 
@@ -254,7 +266,13 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 		gap = np.random.default_rng().uniform(gap_lim[0], gap_lim[1])
 		gap = np.round(gap).astype(np.int32)
-
+		
+		if verbose:
+			print(f"\nFiber id: {n_generated}")
+			print(f"   drawed radius (in pxl): {radius:.3f}")
+			print(f"   drawed length (in pxl): {length}")
+			print(f"   drawed latitude (rad|deg): {lat:.2f}|{np.rad2deg(lat):.2f}")
+			print(f"   drawed azimuth (rad|deg): {azth:.2f}|{np.rad2deg(azth):.2f}")
 		fiber_pts, fiber_len = mkfiber(dims, length, radius, azth, lat, offset, parallelization)
 		gap_fiber_pts, gap_fiber_len = mkfiber(dims, length, radius + gap, azth, lat, offset, parallelization)
 
@@ -278,26 +296,26 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 
 					continue
 
-			# Fill the volume
+			# Update n_generated and n_fails + Fill the volume
+			n_generated = n_generated + 1
+			n_fails = 0
+			# -- Tagging of fiber
 			clean_cell = np.zeros(volume_shape, dtype=np.int8)
 			clean_cell[Z, Y, X] = 1
 			clean_cell = ndi.binary_fill_holes(clean_cell)
-			volume[clean_cell] = fiber_id
-			fiber_id += 1
+			volume[clean_cell] = n_generated
+			# -- record of latitude, azimuth and diameter of the fiber
 			lat_ref[Z, Y, X] = lat
 			azth_ref[Z, Y, X] = azth
 			diameter[Z, Y, X] = radius * 2
-			n_generated = n_generated + 1
-			n_fails = 0
 
 	te = time.time()
 	elapsed_time = te - ts
-	#print(f"volume = {volume.shape}")
-	#print(f"lat_ref = {lat_ref.shape}")
-	#print(f"azth_ref = {azth_ref.shape}")
-	#print(f"diameter = {diameter.shape}")
-	#volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
-	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
+	if verbose:
+		print("======================================================= ")
+		print("======= End of the fibers simulation generation ======= ")
+		print(f"======================================================= Elapsed time = {elapsed_time}")
+	return (volume, lat_ref, azth_ref, diameter, n_generated)
 
 
 def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 10),
