@@ -296,8 +296,8 @@ def estimate_fourier_orientation(data, grid_shape=(2,2), sigma=2., zoom=1., orde
     data_blocks = view_as_blocks(data, block_shape=block_shape)
     orient_blocks = np.zeros(grid_shape, dtype=np.float32)
 
-    for i in xrange(grid_shape[0]):
-        for j in xrange(grid_shape[1]):
+    for i in range(grid_shape[0]):
+        for j in range(grid_shape[1]):
             y0, x0 = block_shape[0] * j + block_shape[0]/2, \
                      block_shape[1] * i + block_shape[1]/2
             dblock = data_blocks[i, j]

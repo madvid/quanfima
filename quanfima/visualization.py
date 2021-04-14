@@ -271,8 +271,8 @@ def _angle_err2mean_abs_err(azth_err, lat_err, azth_ref, lat_ref,
     """
     out = np.zeros((len(azth_rng) - 1, len(lat_rng) - 1), dtype=np.float32)
 
-    for i in xrange(len(azth_rng) - 1):
-        for j in xrange(len(lat_rng) - 1):
+    for i in range(len(azth_rng) - 1):
+        for j in range(len(lat_rng) - 1):
             rng_azth = (np.deg2rad(azth_rng[i]), np.deg2rad(azth_rng[i+1]))
             rng_lat = (np.deg2rad(lat_rng[j]), np.deg2rad(lat_rng[j+1]))
 
@@ -964,8 +964,8 @@ def plot_color_wheel(name, output_dir=None, dpi=500, xlabel='Elevation',
 
     azth, lat = np.linspace(0., 1., num=180), np.linspace(0., 1., num=90)
     rgb_arr = np.zeros((len(azth), len(lat), 3))
-    for i in xrange(len(azth)):
-        for j in xrange(len(lat)):
+    for i in range(len(azth)):
+        for j in range(len(lat)):
             rgb_arr[i, j, :] = colors.hsv_to_rgb([azth[i], lat[j], 1.0])
 
     fig, ax = plt.subplots(figsize=(2, 2))
@@ -1055,8 +1055,8 @@ def plot_fourier_orientation(data, orient_blocks, block_shape, figsize=(12,12),
 
     ax.imshow(data, cmap=cmap)
 
-    for i in xrange(orient_blocks.shape[0]):
-        for j in xrange(orient_blocks.shape[1]):
+    for i in range(orient_blocks.shape[0]):
+        for j in range(orient_blocks.shape[1]):
             y0, x0 = block_shape[0] * j + block_shape[0]/2, \
                      block_shape[1] * i + block_shape[1]/2
 
