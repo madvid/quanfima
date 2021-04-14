@@ -625,7 +625,8 @@ def unpack_additive_noise(args):
 
 
 def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3):
-    """Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
+    """
+    Contaminates datasets with a speficied additive Gaussian noise and smoothing level.
 
     Contaminates the datasets (generated with `generate_datasets` function) with the specified
     level of additive Gaussian noise and smoothing, uneven illumination can be added by
@@ -683,25 +684,29 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
         return data_seg
 
     print('{}: Noise: {} | Smooth: {}'.format(name, noise_lvl, smooth_lvl))
-
+    
+    data_ref_skel = exposure.rescale_intensity(data_skel,out_range=(0, 1))
+    data_ref_skel = data_ref_skel.astype(np.uint8)
+    
     data_ref = data.astype(np.float32)
-    data_ref_skel = exposure.rescale_intensity(data_skel,
-                                               out_range=(0, 1)).astype(np.uint8)
+    data_noised = apply_noise(data, noise_lvl, smooth_lvl, use_median, median_rad, blobs)
+    
+    # data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
 
-    data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
+    # if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
+    #     data_noised += blobs
 
-    if (blobs is not None) and (noise_lvl != 0.) and (smooth_lvl != 0.):
-        data_noised += blobs
+    # if smooth_lvl != 0:
+    #     data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
 
-    if smooth_lvl != 0:
-        data_noised = ndi.gaussian_filter(data_noised, smooth_lvl)
+    # snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
+    # data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
 
+    # if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
+    #     data_noised = median_fltr(data_noised, morphology.disk(median_rad))
+    
     snr = np.mean(data_noised[data_ref != 0]) / np.std(data_noised[data_ref == 0])
-    data_noised = exposure.rescale_intensity(data_noised, out_range=np.uint8).astype(np.uint8)
-
-    if use_median and (noise_lvl != 0.) and (smooth_lvl != 0.):
-        data_noised = median_fltr(data_noised, morphology.disk(median_rad))
-
+    
     data_noised_seg = threshold_dataset(data_noised)
     data_noised_skel = morphology.skeletonize_3d(data_noised_seg)
 
@@ -742,7 +747,41 @@ def additive_noise(params, noise_lvl, smooth_lvl, use_median=True, median_rad=3)
 
     return datasets_props
 
-def apply_noise(data, noise_lvl = 0.15, smooth_lvl = 1, use_median = True, median_rad=3, blobs = None): 
+def apply_noise(data, 
+                noise_lvl = 0.15, 
+                smooth_lvl = 1, 
+                use_median = True, 
+                median_rad=3, 
+                blobs = None): 
+    """
+    
+
+    Parameters
+    ----------
+    data : TYPE
+        DESCRIPTION.
+    
+    noise_lvl : float
+        Indicates the standard deviations of noise.
+
+    smooth_lvl : float
+        Indicates the sigma value of Gaussian filter.
+
+    use_median : boolean
+        Specifies if the median filter should be applied after addition of noise.
+
+    median_rad : integer
+        Indicates the size of median filter.
+        
+    blobs : TYPE, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    data_noised : TYPE
+        DESCRIPTION.
+
+    """
     
     data_ref = data.astype(np.float32)
     data_noised = data_ref + noise_lvl * np.random.randn(*data_ref.shape)
