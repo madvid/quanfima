@@ -70,7 +70,7 @@ analyze 3D fiber orientation and diameters, and visualize the results.
                      shape=(128,128,128), dtype=np.uint8, mode='r')
 
     data_seg = np.zeros_like(data, dtype=np.uint8)
-    for i in xrange(data_seg.shape[0]):
+    for i in range(data_seg.shape[0]):
       th_val = filters.threshold_otsu(data[i])
       data_seg[i] = (data[i] > th_val).astype(np.uint8)
 
