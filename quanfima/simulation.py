@@ -88,7 +88,7 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 
 	# Draw circle perpedicular to the directional vector
 	X, Y = draw.disk((0, 0), radius) # X and Y values of each voxels which constitued the circle
-	print(f"radius ={radius} -- X.shape = {X.shape}")
+	#print(f"radius ={radius} -- X.shape = {X.shape}")
 	Z = np.repeat(0, len(Y)) # associated Z coordinates of the voxels
 	circle_pts = np.array([X, Y, Z])
 	#print("circle : ", circle_pts)
@@ -282,12 +282,12 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 			# dims_size * 0.5 + offset
 			volume[Z, Y, X] = fiber_id
 			#print("\nradius:", radius)
-			sample_points = int(3.14 * (radius**2) / 4)
-			center = (int(X[0:sample_points].mean()), int(Y[0:sample_points].mean()), int(Z[0:sample_points].mean()))
+			#sample_points = int(3.14 * (radius**2) / 4)
+			#center = (int(X[0:sample_points].mean()), int(Y[0:sample_points].mean()), int(Z[0:sample_points].mean()))
 			#center = (int(dims[0] * 0.5 + offset[0]), int(dims[1] * 0.5 + offset[1]), int(dims[2] * 0.5 + offset[2]))
 			#center = tuple(center.astype(int))
-			mask = flood(volume, center)
-			volume[mask] = fiber_id
+			#mask = flood(volume, center)
+			#volume[mask] = fiber_id
 			fiber_id += 1
 			lat_ref[Z, Y, X] = lat
 			azth_ref[Z, Y, X] = azth
@@ -301,7 +301,7 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	#print(f"lat_ref = {lat_ref.shape}")
 	#print(f"azth_ref = {azth_ref.shape}")
 	#print(f"diameter = {diameter.shape}")
-	#volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
+	volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
 	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
 
 
