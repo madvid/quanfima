@@ -6,11 +6,17 @@ from quanfima import morphology as mrph
 from quanfima import utils
 from quanfima import visualization as vis
 
-volume, lat_ref, azth_ref, diameter, _, _ = \
-		  simulation.simulate_fibers((128,128,128), n_fibers=5, max_fails=100,
-									 radius_lim=(2, 8), gap_lim=(3,5), parallelization="normal")
-print("\nsucess")
-#exit()
+volume, lat_ref, azth_ref, diameter, n_fibers = \
+		  simulation.simulate_fibers((128,128,128),
+		  								n_fibers=35,
+										max_fails=100,
+										radius_lim=(2, 8),
+										length_lim=(0.7, 0.8),
+										gap_lim=(3,5),
+										parallelization="normal",
+										intersect=True,
+										exclusion_zone=False,
+										verbose=True)
 #volume = volume.astype(np.uint8)
 #volume = ndi.binary_fill_holes(volume) # fill the 0 values within closed volume of '1'
 volume = ndi.median_filter(volume, footprint=morphology.ball(2))
