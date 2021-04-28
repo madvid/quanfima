@@ -24,10 +24,10 @@ number_box = 10
 #					'mean_lat', 'mean_azth', 'std_lat' and 'std_azth'.
 
 # ================== #
-config = "default"
+#config = "default"
 # ================== #
-#config = "unique"
-#profil = "aligned" # | "alignedish" | "medium" | "mediumish" | "disordered" |
+config = "unique"
+profil = "aligned" # | "alignedish" | "medium" | "mediumish" | "disordered" |
 # ================== #
 #config = "uniform"
 #mean_lat = __ # float between 0 and 90 degree 
@@ -56,21 +56,21 @@ verbose=True
 
 
 # ======= For default config ========== #
-params = simulation.generate_params_datasets(config = "default",
-								  box_population = number_box)
+#params = simulation.generate_params_datasets(config = "default",
+#								  box_population = number_box)
 # ================== #
 
 # ======= For unique config =========== #
-#params = generate_params_datasets(config = "unique",
+#params = simulation.generate_params_datasets(config = "unique",
 # 								   box_population = number_box,
 # 								   profil = profil)
 # ================== #
 
 # ======== For uniform config ========== #
-#params = generate_params_datasets(config = "uniform",
-# 								   box_population = number_box)
+params = simulation.generate_params_datasets(config = "uniform",
+ 								   box_population = number_box)
 ###
-#params = generate_params_datasets(config = "uniform",
+#params = simulation.generate_params_datasets(config = "uniform",
 # 								   box_population = number_box,
 # 								   mean_lat = mean_lat,
 # 								   mean_azth = mean_azth,
