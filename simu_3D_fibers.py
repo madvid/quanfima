@@ -6,7 +6,7 @@ from quanfima import morphology as mrph
 from quanfima import utils
 from quanfima import visualization as vis
 
-volume, lat_ref, azth_ref, diameter, n_fibers = \
+volume, lat_ref, azth_ref, diameter, n_fibers, elapsed_time = \
 		  simulation.simulate_fibers((128,128,128),
 		  								n_fibers=35,
 										max_fails=100,
