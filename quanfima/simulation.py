@@ -14,6 +14,7 @@ from skimage import filters, morphology, data as skidata, exposure, draw
 import concurrent.futures
 from multiprocessing import cpu_count
 
+from quanfima.verbose import *
 
 def cpu_parallelization_slice_treat(i, pts, dims_size):
 	""" CPU parallelized version of 
@@ -168,9 +169,20 @@ def mkfiber(dims_size, length, radius, azth, lat, offset_xyz, parallelization):
 	return fiber_pts, fiber_len
 
 
-def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.2, 0.8),
-					lat_lim=(0, np.pi), azth_lim=(0, np.pi), gap_lim=(3, 10),
-					max_fails=10, max_len_loss=0.5, parallelization="normal", intersect=False, exclusion_zone = False, verbose=False):
+def simulate_fibers(volume_shape,
+					n_fibers=1,
+					radius_lim=(4, 10),
+					length_lim=(0.2, 0.8),
+					lat_lim=(0, np.pi),
+					azth_lim=(0, np.pi),
+					gap_lim=(3, 10),
+					max_fails=10,
+					max_len_loss=0.5,
+					parallelization="normal",
+					intersect=False,
+					exclusion_zone = False,
+					distribution="uniform",
+					verbose=False):
 	"""Simulates fibers in a volume.
 
 	Simulates `n_fibers` of the radii and lengths in ranges `radius_lim` and `length_lim`,
@@ -217,6 +229,12 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 		Specifies if generated fibers can be very closed to each others and sometimes touching
 		each others
 
+	distribution: str :: ["uniform", "normal"]
+	verbose: boolean
+		Activates or not the verbose along simulate_fibers function
+		* enhancement: define the nature of the distribution for length and radius also.
+		  in that case, a dictionnary could be a good choice (a_distrib:"", l_distrib:"", r_distrib:"")
+
 	Remarks:
 	-------
 	intersect and exclusion: If exclusion_zone is True, intersect must be False.
@@ -234,24 +252,16 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	azth_ref = np.zeros_like(volume, dtype=np.float32)
 	diameter = np.zeros_like(volume, dtype=np.float32)
 	if verbose:
-		print("============================================================= ")
-		print("========= Start of the fibers simulation generation ========= ")
-		print("============================================================= ")
-		print("Parallelization: [{parallelization}]")
-		volume_str = "Volume of cell (in (pxl,pxl,pxl))="
-		print(volume_str, volume.shape)
-		print(f"Attempting number of fibers: {n_fibers}") 
-		print(f"Intersection allowed: {str(intersect)}")
-		print(f"Exclusion volume around fibers: {str(exclusion_zone)}")
-		if intersect and exclusion_zone:
-			e_str = "Parameter Errors: intersect cannot be True if exclusion_zone is True."
-			raise Exception(e_str)
-		print("\n________  PARAMETERS ________ :")
-		print(f"Radius (in pixels)                      : min = {radius_lim[0]}    max = {radius_lim[1]}")
-		print(f"Length range of fibers (% of min V size): min = {length_lim[0]}    max = {length_lim[1]}")
-		print(f"Latitude range (rad|degree)             : min = {lat_lim[0]:.2f}||{np.rad2deg(lat_lim[0]):.2f}    max = {lat_lim[1]:.2f}||{np.rad2deg(lat_lim[1]):.2f}")
-		print(f"Azimuth (rad|degree)                    : min = {azth_lim[0]:.2f}||{np.rad2deg(azth_lim[0]):.2f}    max = {azth_lim[1]:.2f}||{np.rad2deg(azth_lim[1]):.2f}")
-		print("============================================================= ")
+		simulate_fibers_verbose(volume,
+								n_fibers,
+								intersect,
+								exclusion_zone,
+								radius_lim,
+								length_lim,
+								lat_lim,
+								azth_lim,
+								distribution,
+								parallelization)
 
 	dims = np.array(volume.shape)[::-1]
 	# supposing the volume is a cube, if not there might be some issues
@@ -267,8 +277,13 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 		offset = [np.random.default_rng().uniform(offset_lim[0], offset_lim[1]) for _ in [0, 1, 2]]
 		offset = np.round(offset).astype(np.int32)
 
-		azth = np.random.default_rng().uniform(azth_lim[0], azth_lim[1])
-		lat = np.random.default_rng().uniform(lat_lim[0], lat_lim[1])
+		if distribution == "uniform":
+			azth = np.random.default_rng().uniform(azth_lim[0], azth_lim[1])
+			lat = np.random.default_rng().uniform(lat_lim[0], lat_lim[1])
+		elif distribution == "normal":
+			azth = np.random.default_rng().normal(loc=np.mean(azth_lim), scale=(azth_lim[1] - azth_lim[0])/2)
+			lat = np.random.default_rng().normal(loc=np.mean(lat_lim), scale=(lat_lim[1] - lat_lim[0])/2)
+
 		radius = np.random.default_rng().uniform(radius_lim[0], radius_lim[1])
 
 		gap = np.random.default_rng().uniform(gap_lim[0], gap_lim[1])
@@ -324,15 +339,42 @@ def simulate_fibers(volume_shape, n_fibers=1, radius_lim=(4, 10), length_lim=(0.
 	te = time.time()
 	elapsed_time = te - ts
 	if verbose:
-		print("======================================================= ")
-		print("======= End of the fibers simulation generation ======= ")
-		print(f"======================================================= Elapsed time = {elapsed_time:.3f}")
-	return (volume, lat_ref, azth_ref, diameter, n_generated)
+		header("End of the fibers simulation generation", elapsed_time)
+	return (volume, lat_ref, azth_ref, diameter, n_generated, elapsed_time)
+
+def _wrapper_sim_fibers_(kwarg):
+	name, *wrp_kwarg = kwarg.items()
+	wrp_kwarg = dict(wrp_kwarg)
+	#print(wrp_kwarg)
+	data, lat_data, azth_data, diameter, n_gen_fibers, elapsed_time = \
+					simulate_fibers(volume_shape = wrp_kwarg["volume_size"],
+									lat_lim = wrp_kwarg["lat_lim"],
+									azth_lim = wrp_kwarg["azth_lim"],
+									radius_lim = wrp_kwarg["radius_lim"],
+									n_fibers = wrp_kwarg["n_fibers"],
+									max_fails = wrp_kwarg["max_fails"],
+									gap_lim = wrp_kwarg["gap_lim"],
+									length_lim = wrp_kwarg["length_lim"],
+									intersect = wrp_kwarg["intersect"],
+									exclusion_zone = wrp_kwarg["exclusion_zone"],
+									distribution = wrp_kwarg["distribution"],
+									verbose = wrp_kwarg["verbose"])
+	return data, lat_data, azth_data, diameter, n_gen_fibers, elapsed_time, name[1]
 
 
-def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 10),
-					  length_lim=(0.2, 0.8), gap_lim=(3, 10), max_fails=100,
-					  median_rad=3, intersect=False, output_dir=None, params=None):
+def generate_datasets(volume_size=(512, 512, 512),
+					  n_fibers=50,
+					  radius_lim=(4, 10),
+					  length_lim=(0.2, 0.8),
+					  gap_lim=(3, 10),
+					  max_fails=100,
+					  median_rad=3,
+					  intersect=False,
+					  exclusion_zone = False,
+					  output_dir=None,
+					  params=None,
+					  distribution="uniform",
+					  verbose=False):
 	"""Simulates speficied configurations of fibers and stores in a npy file.
 
 	Simulates a number of fiber configurations speficied in `params` with `n_fibers` of the
@@ -366,12 +408,21 @@ def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 1
 
 	intersect : boolean
 		Specifies if generated fibers can intersect.
+	
+	exclusion_zone: boolean
+		Specifies if generated fibers can be very closed to each others and sometimes touching
+		each others
 
 	output_dir : str
 		Indicates the path to the output folder where the data will be stored.
 
 	params : dict
 		Indicates the configurations of orientation of fibers to be generated.
+	
+	distribution : str :: ["uniform", "normal"]
+		Specifies the nature of the distribution when creating each fibers.
+	verbose : boolean
+		Activate or not the verbose.
 
 	Returns
 	-------
@@ -380,48 +431,185 @@ def generate_datasets(volume_size=(512, 512, 512), n_fibers=50, radius_lim=(4, 1
 	"""
 	if params is None:
 		params = {'aligned': {'lat_rng': (15, 15), 'azth_rng': (27, 27)},
+				  'alignedish': {'lat_rng': (0, 23), 'azth_rng': (0, 45)},
 				  'medium': {'lat_rng': (0, 45), 'azth_rng': (-45, 45)},
+				
+				  'mediumish': {'lat_rng': (0, 68), 'azth_rng': (-67, 68)},
 				  'disordered': {'lat_rng': (0, 90), 'azth_rng': (-89, 90)}}
-
+		default_params = True
+	else:
+		default_params = False
+	
+	if verbose:
+		generate_datasets_verbose(params, default_params)
+	
 	out = {}
-	for name, config in params.items():
-		data, lat_data, azth_data, diameter_data, n_gen_fibers, elapsed_time = \
-				simulate_fibers(volume_size,
-								lat_lim=tuple([np.deg2rad(v) for v in config['lat_rng']]),
-								azth_lim=tuple([np.deg2rad(v) for v in config['azth_rng']]),
-								radius_lim=radius_lim,
-								n_fibers=n_fibers,
-								max_fails=max_fails,
-								gap_lim=gap_lim,
-								length_lim=length_lim,
-								intersect=intersect)
-
-		data_8bit = data.astype(np.uint8)
-		data_8bit = ndi.binary_fill_holes(data_8bit)
-		data_8bit = ndi.median_filter(data_8bit, footprint=morphology.ball(median_rad))
-		lat_data = ndi.median_filter(lat_data, footprint=morphology.ball(median_rad))
-		azth_data = ndi.median_filter(azth_data, footprint=morphology.ball(median_rad))
-		diameter_data = ndi.median_filter(diameter_data, footprint=morphology.ball(median_rad))
-
-		out[name] = {'data': data_8bit,
-					 'lat': lat_data,
-					 'azth': azth_data,
-					 'diameter': diameter_data,
-					 'skeleton': morphology.skeletonize_3d(data_8bit).astype(np.float32),
-					 'props': {'n_gen_fibers': n_gen_fibers,
-							   'time': elapsed_time,
-							   'intersect': intersect}}
-
+	idx = 0 
+	
+	# test if repository exits:
 	if output_dir is not None and not os.path.exists(output_dir):
 		os.makedirs(output_dir)
+	
+	parallele_gen = True
+	if parallele_gen:
+		# ==== CPU parallelized generation of the dataset
+		n_cpu = cpu_count()
+		cpu_use = int(n_cpu / 2)
+		results=[]
+		with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_use) as executor:
+			for name,config in params.items():
+				results.append(executor.submit(_wrapper_sim_fibers_,
+											   {"name":name,
+											   "volume_size":volume_size,
+											   "lat_lim":tuple([np.deg2rad(v) for v in config['lat_rng']]),
+											   "azth_lim":tuple([np.deg2rad(v) for v in config['azth_rng']]),
+											   "radius_lim":radius_lim,
+											   "n_fibers":n_fibers,
+											   "max_fails":max_fails,
+											   "gap_lim":gap_lim,
+											   "length_lim":length_lim,
+											   "intersect":intersect,
+											   "exclusion_zone": exclusion_zone,
+											   "distribution":distribution,
+											   "verbose":verbose}))
+			
+			for task in concurrent.futures.as_completed(results):
+				if task.result() != None:
+					data, lat_data, azth_data, diameter_data, n_gen_fibers, elapsed_time, name = task.result()
+					data_8bit = data.astype(np.uint8)
+					data_8bit = ndi.binary_fill_holes(data_8bit)
+					data_8bit = ndi.median_filter(data_8bit, footprint=morphology.ball(median_rad))
+					lat_data = ndi.median_filter(lat_data, footprint=morphology.ball(median_rad))
+					azth_data = ndi.median_filter(azth_data, footprint=morphology.ball(median_rad))
+					diameter_data = ndi.median_filter(diameter_data, footprint=morphology.ball(median_rad))
+					out[name] = {'data': data_8bit,
+							#'lat': lat_data,
+							#'azth': azth_data,
+							#'diameter': diameter_data,
+							#'skeleton': morphology.skeletonize_3d(data_8bit).astype(np.float32),
+							'props': {'n_gen_fibers': n_gen_fibers,
+									'time': elapsed_time,
+									'intersect': intersect}}
+					np.save(os.path.join(output_dir, '{}_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
+											format(name,
+													n_fibers,
+													radius_lim[0],
+													radius_lim[-1],
+													gap_lim[0],
+													gap_lim[-1],
+													median_rad,
+													int(intersect))), out[name])
+	else:
+		# ====  sequential generation of the dataset:	
+		for name, config in params.items():
+			if verbose:
+				print(f"Volume generating ...: {idx} / {len(params)}")
+				idx += 1
+			data, lat_data, azth_data, diameter_data, n_gen_fibers, elapsed_time = \
+					simulate_fibers(volume_size,
+									lat_lim=tuple([np.deg2rad(v) for v in config['lat_rng']]),
+									azth_lim=tuple([np.deg2rad(v) for v in config['azth_rng']]),
+									radius_lim=radius_lim,
+									n_fibers=n_fibers,
+									max_fails=max_fails,
+									gap_lim=gap_lim,
+									length_lim=length_lim,
+									intersect=intersect,
+									exclusion_zone = exclusion_zone,
+									distribution = distribution,
+									verbose = verbose)
 
-	np.save(os.path.join(output_dir, 'dataset_fibers_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
-											format(n_fibers,
-												   radius_lim[0], radius_lim[-1],
-												   gap_lim[0], gap_lim[-1],
-												   median_rad, int(intersect))), out)
+			data_8bit = data.astype(np.uint8)
+			data_8bit = ndi.binary_fill_holes(data_8bit)
+			data_8bit = ndi.median_filter(data_8bit, footprint=morphology.ball(median_rad))
+			lat_data = ndi.median_filter(lat_data, footprint=morphology.ball(median_rad))
+			azth_data = ndi.median_filter(azth_data, footprint=morphology.ball(median_rad))
+			diameter_data = ndi.median_filter(diameter_data, footprint=morphology.ball(median_rad))
+
+			out[name] = {'data': data_8bit,
+						#'lat': lat_data,
+						#'azth': azth_data,
+						#'diameter': diameter_data,
+						#'skeleton': morphology.skeletonize_3d(data_8bit).astype(np.float32),
+						'props': {'n_gen_fibers': n_gen_fibers,
+								'time': elapsed_time,
+								'intersect': intersect}}
+			
+			np.save(os.path.join(output_dir, '{}_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
+											format(name,
+												   n_fibers,
+												   radius_lim[0],
+												   radius_lim[-1],
+												   gap_lim[0],
+												   gap_lim[-1],
+												   median_rad,
+												   int(intersect))), out[name])
+
+
+	# Save all the cells in a unique file:
+	#np.save(os.path.join(output_dir, 'dataset_fibers_n{}_r{}_{}_g{}_{}_mr{}_i{}.npy'.
+	#										format(n_fibers,
+	#											   radius_lim[0], radius_lim[-1],
+	#											   gap_lim[0], gap_lim[-1],
+	#											   median_rad, int(intersect))), out)
 
 	return out
+
+
+def generate_params_datasets(config = "default", box_population = 10, **kwargs):
+	"""Generates the dictonnary params used in generate_datasets.
+
+	Generate  `n_particles` of the radii in a range `radius_lim`. The simulation process
+	stops if the number of attempts to generate a particle exceeds `max_fails`.
+
+	Parameters
+	----------
+	config : str
+		Specifies which configuration we want to generates. Available values are:
+		["default", "unique", "std_normal", "gaussian"]
+	"""
+	nb_profil = 5
+	
+	seed = kwargs.get("seed", 0)
+	if not isinstance(seed, int):
+		str_raise = "seed must be an integer."
+		raise Exception(str_raise)
+
+	rng = np.random.default_rng(seed = seed)
+	
+	profils = [{"name": "aligned", "params": {'lat_rng': (15, 15), 'azth_rng': (27, 27)}},
+			   {"name": "alignedish", "params": {'lat_rng': (0, 23), 'azth_rng': (0, 45)}},
+			   {"name": "medium", "params": {'lat_rng': (0, 45), 'azth_rng': (-45, 45)}},
+			   {"name": "mediumish", "params": {'lat_rng': (0, 68), 'azth_rng': (-67, 68)}},
+			   {"name": "disordered", "params": {'lat_rng': (0, 90), 'azth_rng': (-89, 90)}}]
+	
+	params = {}
+	if config == "default":
+		nb = [0, 0, 0, 0, 0]
+		rd = rng.integers(low = 0, high = nb_profil, endpoint = False, size = box_population)
+		for i in rd:
+			params[profils[i]["name"] + f"_{str(nb[i])}"] = profils[i]["params"]
+			nb[i] += 1
+	elif config == "unique":
+		profil = kwargs.get("profil", None)
+		if profil is None:
+			str_raise = "Profil specified is not among the available ones, choose between:" \
+					  + "'aligned', 'alignedish', 'medium', 'mediumish' or 'disordered'"
+			raise Exception(str_raise)	
+		dct_profil = list(filter(lambda dct: dct['name'] == profil, profils))[0]
+		for i in range(box_population):
+			params[profil + f"_{str(i)}"] = dct_profil['params'] 
+	elif config == "uniform":
+		for i in range(0, box_population):
+			mean_lat = kwargs.get("mean_lat", rng.uniform(low=0, high=90))
+			mean_azth = kwargs.get("mean_azth", rng.uniform(low=-179, high=180))
+			std_lat = kwargs.get("std_lat", rng.uniform(low=0, high=90))
+			std_azth = kwargs.get("std_azth", rng.uniform(low=0, high=90))
+			
+			params[f"std_uniform_{i}"] = {'lat_rng': (mean_lat - std_lat, mean_lat + std_lat),
+										  'azth_rng': (mean_azth - std_azth, mean_azth + std_azth)}
+	return params
+
 
 
 def simulate_particles(volume_shape, n_particles=1, radius_lim=(3, 30), max_fails=10):
